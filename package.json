@@ -10,7 +10,8 @@
     "test": "node --test",
     "build": "node scripts/build.mjs",
     "package": "node scripts/package.mjs",
-    "check": "npm run format:check && npm run lint && npm test && npm run build && npm run package"
+    "check": "npm run format:check && npm run lint && npm test && npm run build && npm run package",
+    "test:browser": "npm run build && npm run package && node scripts/e2e/firefox-smoke.mjs"
   },
   "engines": {
     "node": "22.x"
