@@ -9,5 +9,53 @@ services:
       - node_modules:/workspace/node_modules
     command: npm run check
 
+  fixture:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    command: node scripts/e2e/fixture-server.mjs
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4173/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  firefox:
+    image: selenium/standalone-firefox:4.52.0-20261101
+    shm_size: 2gb
+    environment:
+      SE_NODE_MAX_SESSIONS: "1"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "curl -fsS http://localhost:4444/status | grep -q '\"ready\": true'"
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  browser-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - node_modules:/workspace/node_modules
+    environment:
+      SELENIUM_REMOTE_URL: http://firefox:4444
+      FIXTURE_URL: http://fixture:4173/
+    depends_on:
+      firefox:
+        condition: service_healthy
+      fixture:
+        condition: service_healthy
+    command: npm run test:browser
+
 volumes:
   node_modules:

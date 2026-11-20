@@ -16,6 +16,8 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
       - name: Build validation image
-        run: docker compose build app
-      - name: Run formatter, lint, tests, and build in Docker
+        run: docker compose build app browser-tests fixture
+      - name: Run formatter, lint, tests, build, and package in Docker
         run: docker compose run --rm app npm run check
+      - name: Run real Firefox browser smoke tests
+        run: docker compose run --rm browser-tests npm run test:browser
