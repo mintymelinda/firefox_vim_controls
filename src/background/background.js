@@ -757,7 +757,7 @@
     const succeeded = tabs.length - failures.length;
     const output = [`${succeeded} of ${tabs.length} tab(s) updated.`];
     output.push(...failures);
-    return { ok: true, output };
+    return { ok: failures.length === 0, output };
   }
 
   function resolveMoveTarget(destination, windows, focusedWindow) {
@@ -1029,11 +1029,22 @@
       const affected = windows.filter((window) =>
         selected.some((tab) => tab.windowId === window.id),
       );
+      const positions = captureTabPositions(affected.flatMap((window) => window.tabs));
       let changed = 0;
-      for (const window of affected) {
-        const inWindow = selected.filter((tab) => tab.windowId === window.id);
-        changed += await reorderWindow(window, inWindow, name, key, browserApi, selectors);
+      try {
+        for (const window of affected) {
+          const inWindow = selected.filter((tab) => tab.windowId === window.id);
+          changed += await reorderWindow(window, inWindow, name, key, browserApi, selectors);
+        }
+      } catch (error) {
+        const rollback = await restoreTabPositions(positions, browserApi);
+        if (rollback.failures.length) pushUndo({ type: "positions", positions, label: name });
+        return {
+          ok: false,
+          error: `Could not complete ${name}: ${error instanceof Error ? error.message : "tab reorder failed"}`,
+        };
       }
+      if (changed) pushUndo({ type: "positions", positions, label: name });
       return {
         ok: true,
         output: [
@@ -1046,19 +1057,23 @@
       if (!selected.length) return { ok: true, output: ["No tabs matched."] };
       const target = resolveMoveTarget(command.destination, windows, focusedWindow);
       if (target.type === "new") {
+        const positions = captureTabPositions(selected);
         const [first, ...remaining] = selected;
         const created = await browserApi.windows.create({ tabId: first.id });
         if (remaining.length) {
           try {
             await moveTabsToWindow(remaining, created.id, browserApi);
           } catch (error) {
+            const rollback = await restoreTabPositions(positions, browserApi);
+            if (rollback.failures.length) pushUndo({ type: "positions", positions, label: "move" });
             const message = error instanceof Error ? error.message : "move failed";
             return {
               ok: false,
-              error: `Created window ${created.id} with tab ${first.id}, but remaining tabs could not be moved: ${message}`,
+              error: `Could not move all tabs to new window ${created.id}: ${message}`,
             };
           }
         }
+        pushUndo({ type: "positions", positions, label: "move" });
         return {
           ok: true,
           output: [`Moved ${selected.length} tab(s) into new window ${created.id}.`],
@@ -1068,7 +1083,18 @@
       if (!moving.length) {
         return { ok: true, output: ["All selected tabs are already in the destination window."] };
       }
-      await moveTabsToWindow(moving, target.window.id, browserApi);
+      const positions = captureTabPositions(moving);
+      try {
+        await moveTabsToWindow(moving, target.window.id, browserApi);
+      } catch (error) {
+        const rollback = await restoreTabPositions(positions, browserApi);
+        if (rollback.failures.length) pushUndo({ type: "positions", positions, label: "move" });
+        return {
+          ok: false,
+          error: `Could not move all selected tabs: ${error instanceof Error ? error.message : "tab move failed"}`,
+        };
+      }
+      pushUndo({ type: "positions", positions, label: "move" });
       return {
         ok: true,
         output: [`Moved ${moving.length} tab(s) into window ${target.window.index}.`],
@@ -1083,7 +1109,40 @@
     }[name];
     if (updateProperties) {
       if (!selected.length) return { ok: true, output: ["No tabs matched."] };
-      return performPerTab(selected, (id) => browserApi.tabs.update(id, updateProperties));
+      const previous = selected.map((tab) => ({
+        id: tab.id,
+        properties:
+          name === "pin" || name === "unpin"
+            ? { pinned: Boolean(tab.pinned) }
+            : { muted: Boolean(tab.mutedInfo?.muted ?? tab.muted) },
+      }));
+      const results = await Promise.all(
+        selected.map(async (tab) => {
+          try {
+            await browserApi.tabs.update(tab.id, updateProperties);
+            return null;
+          } catch (error) {
+            return `#${tab.id}: ${error instanceof Error ? error.message : "update failed"}`;
+          }
+        }),
+      );
+      const failures = results.filter(Boolean);
+      const succeededIds = new Set(
+        selected.filter((tab, index) => !results[index]).map((tab) => tab.id),
+      );
+      const succeeded = previous.filter((tab) => succeededIds.has(tab.id));
+      if (succeeded.length) {
+        pushUndo({
+          type: "tab-state",
+          tabs: succeeded,
+          positions: captureTabPositions(selected.filter((tab) => succeededIds.has(tab.id))),
+          label: name,
+        });
+      }
+      return {
+        ok: failures.length === 0,
+        output: [`${succeeded.length} of ${selected.length} tab(s) updated.`, ...failures],
+      };
     }
 
     return { ok: false, error: `Command is not available: ${name}` };
