@@ -24,6 +24,12 @@
     "sort",
     "reverse",
     "shuffle",
+    "open",
+    "search",
+    "back",
+    "forward",
+    "refresh",
+    "home",
   ]);
 
   function validateCommandRequest(message) {
@@ -43,10 +49,11 @@
     if (typeof command.name !== "string" || !/^[a-z][a-z0-9_-]*$/.test(command.name)) {
       return "Invalid command name";
     }
+    const maxArgumentLength = command.name === "open" ? 8192 : 256;
     if (
       !Array.isArray(command.args) ||
       command.args.length > 32 ||
-      command.args.some((arg) => typeof arg !== "string" || arg.length > 256)
+      command.args.some((arg) => typeof arg !== "string" || arg.length > maxArgumentLength)
     ) {
       return "Invalid command arguments";
     }
@@ -58,6 +65,131 @@
       return "Invalid command destination";
     }
     return null;
+  }
+
+  const STATE_STORAGE_KEYS = ["fvcCommandHistory", "fvcCommandAliases", "fvcCommandPreferences"];
+
+  function validateStateMessage(message) {
+    if (!message || typeof message !== "object" || Array.isArray(message)) {
+      return "Invalid state message";
+    }
+    if (!["VIM_STATE_GET", "VIM_STATE_SET"].includes(message.type)) {
+      return "Invalid state message type";
+    }
+    if (Object.keys(message).some((key) => !["type", "state"].includes(key))) {
+      return "Unexpected state message properties";
+    }
+    if (message.type === "VIM_STATE_GET") {
+      return Object.hasOwn(message, "state") ? "Unexpected state payload" : null;
+    }
+    const state = message.state;
+    if (!state || typeof state !== "object" || Array.isArray(state)) {
+      return "Invalid state payload";
+    }
+    if (Object.keys(state).some((key) => !["history", "aliases", "preferences"].includes(key))) {
+      return "Unexpected state properties";
+    }
+    if (
+      !Array.isArray(state.history) ||
+      !state.aliases ||
+      typeof state.aliases !== "object" ||
+      Array.isArray(state.aliases) ||
+      !state.preferences ||
+      typeof state.preferences !== "object" ||
+      Array.isArray(state.preferences)
+    ) {
+      return "Invalid state values";
+    }
+    return null;
+  }
+
+  function emptyStoredState() {
+    return {
+      history: [],
+      aliases: {},
+      preferences: root.VimCommandState.normalizePreferences(),
+    };
+  }
+
+  function normalizeStoredState(state) {
+    const preferences = root.VimCommandState.normalizePreferences(state.fvcCommandPreferences);
+    return {
+      history: root.VimCommandState.normalizeHistory(
+        state.fvcCommandHistory,
+        preferences.historyLimit,
+      ),
+      aliases: {
+        ...root.VimCommandState.normalizeAliases(
+          state.fvcCommandAliases,
+          root.VimCommandRegistry.names(),
+        ),
+      },
+      preferences,
+    };
+  }
+
+  async function handleStateMessage(message, browserApi, sender = {}) {
+    const validationError = validateStateMessage(message);
+    if (validationError) return { ok: false, error: validationError };
+    const privateContext = Boolean(sender.tab?.incognito);
+    if (privateContext) {
+      return {
+        ok: true,
+        persisted: false,
+        ...(message.type === "VIM_STATE_GET" ? { state: emptyStoredState() } : {}),
+      };
+    }
+    const storage = browserApi?.storage?.local;
+    if (
+      !root.VimCommandState ||
+      !root.VimCommandRegistry ||
+      !root.VimCommandState.canPersistState(privateContext, storage)
+    ) {
+      return { ok: false, error: "Extension storage is unavailable." };
+    }
+    if (message.type === "VIM_STATE_GET") {
+      const stored = await storage.get(STATE_STORAGE_KEYS);
+      return { ok: true, state: normalizeStoredState(stored) };
+    }
+    const preferences = root.VimCommandState.normalizePreferences(message.state.preferences);
+    const history = root.VimCommandState.normalizeHistory(
+      message.state.history,
+      preferences.historyLimit,
+    );
+    const aliases = {
+      ...root.VimCommandState.normalizeAliases(
+        message.state.aliases,
+        root.VimCommandRegistry.names(),
+      ),
+    };
+    const updatedState = { history, aliases, preferences };
+    await storage.set({
+      fvcCommandHistory: history,
+      fvcCommandAliases: aliases,
+      fvcCommandPreferences: preferences,
+    });
+    if (browserApi.tabs?.query && browserApi.tabs?.sendMessage && sender.tab?.id !== undefined) {
+      try {
+        const tabs = await browserApi.tabs.query({});
+        await Promise.all(
+          tabs
+            .filter((tab) => !tab.incognito && tab.id !== sender.tab.id)
+            .map(async (tab) => {
+              try {
+                await browserApi.tabs.sendMessage(tab.id, {
+                  type: "VIM_STATE_UPDATED",
+                  state: updatedState,
+                });
+              } catch {
+                // Tabs without the content script can be ignored.
+              }
+            }),
+        );
+      } catch {
+        // Persisted state remains available when each tab next loads the prompt.
+      }
+    }
+    return { ok: true, persisted: true };
   }
 
   function tabSummary(tab, windowIndex) {
@@ -475,9 +607,152 @@
     return { ok: false, error: `Command is not available: ${name}` };
   }
 
+  const URL_ALIASES = {
+    twitch: "https://www.twitch.tv/",
+    youtube: "https://www.youtube.com/",
+    github: "https://github.com/",
+  };
+
+  function resolveNavigationUrl(value) {
+    const input = String(value || "").trim();
+    if (!input) throw new Error("A URL or shortcut is required.");
+    if (Object.hasOwn(URL_ALIASES, input.toLowerCase())) {
+      return URL_ALIASES[input.toLowerCase()];
+    }
+    const candidate = /^[a-z][a-z0-9+.-]*:/i.test(input) ? input : `https://${input}`;
+    let url;
+    try {
+      url = new URL(candidate);
+    } catch {
+      throw new Error("Enter a valid HTTP(S) URL or a supported shortcut.");
+    }
+    if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
+      throw new Error("Only HTTP and HTTPS destinations are allowed.");
+    }
+    if (url.username || url.password) {
+      throw new Error("URLs containing embedded credentials are not allowed.");
+    }
+    return url.href;
+  }
+
+  async function executeOpenCommand(command, focusedWindow, browserApi) {
+    const value = command.args.join(" ").trim();
+    if (!value) {
+      return {
+        ok: false,
+        error:
+          command.name === "search"
+            ? "Search syntax: :search search terms."
+            : "Open syntax: :open URL or shortcut.",
+      };
+    }
+    let url;
+    if (command.name === "search") {
+      const searchUrl = new URL("https://duckduckgo.com/");
+      searchUrl.searchParams.set("q", value);
+      url = searchUrl.href;
+    } else {
+      url = resolveNavigationUrl(value);
+    }
+    const destination = command.destination.join(" ").trim().toLowerCase();
+    if (destination && !["new_tab", "new_window"].includes(destination)) {
+      return { ok: false, error: "Open destination must be new_tab or new_window." };
+    }
+    if (destination === "new_window" || !focusedWindow) {
+      const created = await browserApi.windows.create({ url });
+      return { ok: true, output: [`Opened ${url} in new window #${created.id}.`] };
+    }
+    if (destination === "new_tab") {
+      const created = await browserApi.tabs.create({
+        windowId: focusedWindow.id,
+        url,
+        active: true,
+      });
+      return { ok: true, output: [`Opened ${url} in new tab #${created.id}.`] };
+    }
+    const active = focusedWindow.tabs.find((tab) => tab.active);
+    if (active) {
+      await browserApi.tabs.update(active.id, { url });
+      return { ok: true, output: [`Navigating tab #${active.id} to ${url}.`] };
+    }
+    const created = await browserApi.tabs.create({
+      windowId: focusedWindow.id,
+      url,
+      active: true,
+    });
+    return { ok: true, output: [`Opened ${url} in new tab #${created.id}.`] };
+  }
+
+  async function executeNavigationCommand(
+    command,
+    tabs,
+    windows,
+    focusedWindow,
+    browserApi,
+    selectors,
+  ) {
+    const confirmed = command.args.includes("--confirm");
+    const args = command.args.filter((arg) => arg !== "--confirm");
+    if (command.name === "home" && args.length) {
+      return { ok: false, error: "Home syntax: :home." };
+    }
+    const selector = args.join(" ").trim() || "active";
+    const selected = selectors.selectTabs(tabs, selector, {
+      currentWindowId: focusedWindow?.id,
+      windows,
+    });
+    if (!selected.length) return { ok: true, output: [`No tabs matched ${selector}.`] };
+    if (command.name === "refresh" && selected.length > 1 && !confirmed) {
+      return { ok: true, output: previewLines("refresh", selector, selected, windows) };
+    }
+    const operations = {
+      back: (id) => browserApi.tabs.goBack(id),
+      forward: (id) => browserApi.tabs.goForward(id),
+      refresh: (id) => browserApi.tabs.reload(id),
+      home: (id) => browserApi.tabs.update(id, { url: "about:home" }),
+    };
+    const operation = operations[command.name];
+    if (!operation) {
+      return { ok: false, error: `Navigation command is unavailable: ${command.name}` };
+    }
+    if (
+      (command.name === "back" && typeof browserApi.tabs.goBack !== "function") ||
+      (command.name === "forward" && typeof browserApi.tabs.goForward !== "function")
+    ) {
+      return {
+        ok: false,
+        error: "This Firefox version does not expose the requested history navigation API.",
+      };
+    }
+    const result = await performPerTab(selected, operation);
+    const failures = result.output.slice(1);
+    const verb = {
+      back: "Navigated back",
+      forward: "Navigated forward",
+      refresh: "Refreshed",
+      home: "Sent to the home page",
+    }[command.name];
+    return {
+      ok: result.ok,
+      output: [
+        `${verb} ${selected.length - failures.length} of ${selected.length} tab(s).`,
+        ...failures,
+      ],
+    };
+  }
+
   async function executeCommand(command, browserApi, selectors) {
     const windows = await getNormalWindowSnapshot(browserApi);
     const focusedWindow = windows.find((window) => window.focused);
+    if (command.name === "open" || command.name === "search") {
+      return executeOpenCommand(command, focusedWindow, browserApi);
+    }
+    if (["back", "forward", "refresh", "home"].includes(command.name)) {
+      const tabs = windows.flatMap((window) =>
+        window.tabs.map((tab) => ({ ...tab, windowId: window.id })),
+      );
+      return executeNavigationCommand(command, tabs, windows, focusedWindow, browserApi, selectors);
+    }
     if (
       ["windows", "window", "new_window", "fullscreen", "minimize", "maximize", "merge"].includes(
         command.name,
@@ -567,7 +842,18 @@
     message,
     browserApi = root.browser,
     selectors = root.VimTabSelectors,
+    sender = {},
   ) {
+    if (message?.type === "VIM_STATE_GET" || message?.type === "VIM_STATE_SET") {
+      try {
+        return await handleStateMessage(message, browserApi, sender);
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Could not access extension storage.",
+        };
+      }
+    }
     const validationError = validateCommandRequest(message);
     if (validationError) return { ok: false, error: validationError };
     const { command } = message;
@@ -585,17 +871,24 @@
   }
 
   if (root.browser?.runtime?.onMessage) {
-    root.browser.runtime.onMessage.addListener((message) => handleMessage(message));
+    root.browser.runtime.onMessage.addListener((message, sender) =>
+      handleMessage(message, root.browser, root.VimTabSelectors, sender),
+    );
   }
 
   const api = {
     commandOptions,
     executeCommand,
+    executeNavigationCommand,
+    executeOpenCommand,
+    resolveNavigationUrl,
     executeMutation,
     executeWindowCommand,
     moveTabsToWindow,
     getNormalWindowSnapshot,
     handleMessage,
+    handleStateMessage,
+    validateStateMessage,
     orderedSelection,
     previewLines,
     removableTabs,

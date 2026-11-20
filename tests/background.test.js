@@ -7,6 +7,8 @@ const {
   validateCommandRequest,
 } = require("../src/background/background.js");
 const selectors = require("../src/shared/selectors.js");
+require("../src/shared/registry.js");
+require("../src/shared/command-state.js");
 
 function makeWindows() {
   return [
@@ -47,17 +49,36 @@ function createBrowserApi() {
     moved: [],
     windowUpdates: [],
     windowCreates: [],
+    tabCreates: [],
+    wentBack: [],
+    wentForward: [],
+    storageGets: [],
+    storageSets: [],
+    stateBroadcasts: [],
   };
+  const storageData = {};
   let nextWindowId = 20;
   return {
     calls,
+    storage: {
+      local: {
+        get: async (keys) => {
+          calls.storageGets.push(keys);
+          return Object.fromEntries(keys.map((key) => [key, storageData[key]]));
+        },
+        set: async (values) => {
+          calls.storageSets.push(values);
+          Object.assign(storageData, values);
+        },
+      },
+    },
     windows: {
       getAll: async () => windows,
       update: async (id, properties) => {
         calls.windowUpdates.push({ id, properties });
         return { id, ...properties };
       },
-      create: async ({ tabId } = {}) => {
+      create: async ({ tabId, url } = {}) => {
         const id = nextWindowId++;
         const tab = tabId
           ? windows.flatMap((window) => window.tabs).find((item) => item.id === tabId)
@@ -73,13 +94,24 @@ function createBrowserApi() {
           state: "normal",
           tabs: createdTabs,
         });
-        calls.windowCreates.push({ id, tabId });
+        calls.windowCreates.push({ id, tabId, url });
         return { id, tabs: createdTabs };
       },
     },
     tabs: {
+      query: async () =>
+        windows.flatMap((window) =>
+          window.tabs.map((tab) => ({ ...tab, incognito: window.incognito, windowId: window.id })),
+        ),
+      sendMessage: async (id, message) => calls.stateBroadcasts.push({ id, message }),
       remove: async (id) => calls.removed.push(id),
       update: async (id, properties) => calls.updated.push({ id, properties }),
+      create: async (properties) => {
+        calls.tabCreates.push(properties);
+        return { id: 40 + calls.tabCreates.length, ...properties };
+      },
+      goBack: async (id) => calls.wentBack.push(id),
+      goForward: async (id) => calls.wentForward.push(id),
       reload: async (id) => calls.reloaded.push(id),
       discard: async (id) => calls.discarded.push(id),
       move: async (ids, properties) => calls.moved.push({ ids, properties }),
@@ -108,6 +140,10 @@ test("validates command message shape and rejects unexpected data", () => {
   assert.match(
     validateCommandRequest(request("tabs", ["x".repeat(257)])),
     /Invalid command arguments/,
+  );
+  assert.equal(
+    validateCommandRequest(request("open", [`https://example.com/?q=${"x".repeat(1000)}`])),
+    null,
   );
 });
 
@@ -301,5 +337,176 @@ test("sorting keeps pinned and unpinned tabs in their own positions", async () =
       { id: 3, index: 0 },
       { id: 4, index: 2 },
     ],
+  );
+});
+
+test("opens safe URLs and shortcuts in the requested destination", async () => {
+  const api = createBrowserApi();
+  const opened = await handleMessage(request("open", ["twitch"]), api, selectors);
+  assert.match(opened.output[0], /https:\/\/www\.twitch\.tv\//);
+  assert.deepEqual(api.calls.updated[0], {
+    id: 1,
+    properties: { url: "https://www.twitch.tv/" },
+  });
+
+  const newTab = await handleMessage(
+    request("open", ["https://example.com/path"], ["new_tab"]),
+    api,
+    selectors,
+  );
+  assert.match(newTab.output[0], /new tab/);
+  assert.deepEqual(api.calls.tabCreates[0], {
+    windowId: 10,
+    url: "https://example.com/path",
+    active: true,
+  });
+
+  const newWindow = await handleMessage(
+    request("open", ["example.org"], ["new_window"]),
+    api,
+    selectors,
+  );
+  assert.match(newWindow.output[0], /new window/);
+  assert.equal(api.calls.windowCreates[0].url, "https://example.org/");
+});
+
+test("rejects unsafe URL schemes and embedded credentials", async () => {
+  const api = createBrowserApi();
+  const scriptUrl = await handleMessage(request("open", ["javascript:alert(1)"]), api, selectors);
+  const credentialUrl = await handleMessage(
+    request("open", ["https://user:secret@example.com"]),
+    api,
+    selectors,
+  );
+  assert.match(scriptUrl.error, /Only HTTP and HTTPS/);
+  assert.match(credentialUrl.error, /embedded credentials/);
+  assert.deepEqual(api.calls.updated, []);
+});
+
+test("searches the web and navigates tab history", async () => {
+  const api = createBrowserApi();
+  await handleMessage(request("search", ["cats", "and", "dogs"]), api, selectors);
+  const searchUrl = new URL(api.calls.updated[0].properties.url);
+  assert.equal(searchUrl.origin, "https://duckduckgo.com");
+  assert.equal(searchUrl.searchParams.get("q"), "cats and dogs");
+
+  const back = await handleMessage(request("back", ["youtube"]), api, selectors);
+  assert.deepEqual(api.calls.wentBack, [3, 4]);
+  assert.match(back.output[0], /Navigated back 2 of 2/);
+
+  const forward = await handleMessage(request("forward"), api, selectors);
+  assert.deepEqual(api.calls.wentForward, [1]);
+  assert.match(forward.output[0], /Navigated forward 1 of 1/);
+});
+
+test("refresh defaults to the active tab and previews broad refreshes", async () => {
+  const api = createBrowserApi();
+  const active = await handleMessage(request("refresh"), api, selectors);
+  assert.deepEqual(api.calls.reloaded, [1]);
+  assert.match(active.output[0], /Refreshed 1 of 1/);
+
+  const preview = await handleMessage(request("refresh", ["all"]), api, selectors);
+  assert.match(preview.output[0], /Preview: refresh would affect 4 tab/);
+  assert.deepEqual(api.calls.reloaded, [1]);
+  api.calls.reloaded.length = 0;
+
+  const confirmed = await handleMessage(request("refresh", ["all", "--confirm"]), api, selectors);
+  assert.deepEqual(api.calls.reloaded, [1, 2, 3, 4]);
+  assert.match(confirmed.output[0], /Refreshed 4 of 4/);
+});
+
+test("home navigates the active tab and stop remains explicitly planned", async () => {
+  const api = createBrowserApi();
+  const home = await handleMessage(request("home"), api, selectors);
+  assert.deepEqual(api.calls.updated[0], {
+    id: 1,
+    properties: { url: "about:home" },
+  });
+  assert.match(home.output[0], /home page/);
+
+  const stop = await handleMessage(request("stop"), api, selectors);
+  assert.match(stop.error, /not implemented yet/);
+});
+
+test("persists normalized command state for normal tabs only", async () => {
+  const api = createBrowserApi();
+  const normalSender = { tab: { id: 1, incognito: false } };
+  const privateSender = { tab: { incognito: true } };
+  const initial = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, normalSender);
+  assert.equal(initial.ok, true);
+  assert.deepEqual(initial.state, {
+    history: [],
+    aliases: {},
+    preferences: { historyLimit: 100, searchEngine: "duckduckgo" },
+  });
+
+  const saved = await handleMessage(
+    {
+      type: "VIM_STATE_SET",
+      state: {
+        history: [":tabs", ":move twitch, new_window"],
+        aliases: {
+          stream: {
+            command: { name: "move", args: ["twitch"], destination: ["new_window"] },
+          },
+          nested: {
+            command: { name: "alias", args: ["other"], destination: [] },
+          },
+        },
+        preferences: { historyLimit: 20, searchEngine: "google" },
+      },
+    },
+    api,
+    selectors,
+    normalSender,
+  );
+  assert.deepEqual(saved, { ok: true, persisted: true });
+  assert.deepEqual(
+    api.calls.stateBroadcasts.map((item) => item.id),
+    [2, 3, 4],
+  );
+
+  const loaded = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, normalSender);
+  assert.deepEqual(loaded.state.history, [":tabs", ":move twitch, new_window"]);
+  assert.deepEqual(Object.keys(loaded.state.aliases), ["stream"]);
+  assert.deepEqual(loaded.state.preferences, {
+    historyLimit: 20,
+    searchEngine: "google",
+  });
+
+  const getCount = api.calls.storageGets.length;
+  const setCount = api.calls.storageSets.length;
+  const broadcastCount = api.calls.stateBroadcasts.length;
+  const privateRead = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, privateSender);
+  const privateWrite = await handleMessage(
+    {
+      type: "VIM_STATE_SET",
+      state: {
+        history: [":open https://private.example"],
+        aliases: {},
+        preferences: { historyLimit: 100, searchEngine: "duckduckgo" },
+      },
+    },
+    api,
+    selectors,
+    privateSender,
+  );
+  assert.equal(privateRead.persisted, false);
+  assert.deepEqual(privateRead.state.history, []);
+  assert.deepEqual(privateWrite, { ok: true, persisted: false });
+  assert.equal(api.calls.storageGets.length, getCount);
+  assert.equal(api.calls.storageSets.length, setCount);
+  assert.equal(api.calls.stateBroadcasts.length, broadcastCount);
+});
+
+test("rejects malformed command state messages", async () => {
+  const api = createBrowserApi();
+  assert.match(
+    (await handleMessage({ type: "VIM_STATE_SET", state: { history: [] } }, api, selectors)).error,
+    /Invalid state values/,
+  );
+  assert.match(
+    (await handleMessage({ type: "VIM_STATE_GET", extra: true }, api, selectors)).error,
+    /Unexpected state message properties/,
   );
 });

@@ -1,10 +1,17 @@
 "use strict";
 
 (() => {
-  if (!globalThis.VimCommandParser || !globalThis.VimCommandActivation) return;
+  if (
+    !globalThis.VimCommandParser ||
+    !globalThis.VimCommandActivation ||
+    !globalThis.VimCommandState
+  ) {
+    return;
+  }
 
-  const HISTORY_LIMIT = 100;
   const history = [];
+  let aliases = Object.create(null);
+  let preferences = globalThis.VimCommandState.normalizePreferences();
   let historyIndex = 0;
   let panel = null;
   let input = null;
@@ -12,6 +19,39 @@
   let lastCompletion = "";
 
   const commandNames = globalThis.VimCommandRegistry.names();
+  const privateContext = Boolean(globalThis.browser?.extension?.inIncognitoContext);
+
+  const stateReady = (async () => {
+    if (privateContext) return;
+    try {
+      const response = await browser.runtime.sendMessage({ type: "VIM_STATE_GET" });
+      if (!response?.ok) return;
+      const stored = response.state || {};
+      preferences = globalThis.VimCommandState.normalizePreferences(stored.preferences);
+      history.push(
+        ...globalThis.VimCommandState.normalizeHistory(stored.history, preferences.historyLimit),
+      );
+      aliases = globalThis.VimCommandState.normalizeAliases(stored.aliases, commandNames);
+      historyIndex = history.length;
+    } catch {
+      // The prompt remains usable if background storage is unavailable.
+    }
+  })();
+
+  async function persistState() {
+    if (privateContext) return;
+    try {
+      const response = await browser.runtime.sendMessage({
+        type: "VIM_STATE_SET",
+        state: { history, aliases, preferences },
+      });
+      if (!response?.ok) {
+        appendOutput(response?.error || "Could not save command state.", "error");
+      }
+    } catch {
+      appendOutput("Could not save command state in extension storage.", "error");
+    }
+  }
 
   function appendOutput(message, kind = "info") {
     if (!output) return;
@@ -58,33 +98,157 @@
     input = panel.querySelector("input");
     output = panel.querySelector(".fvc-output");
     input.addEventListener("keydown", handlePromptKeydown);
+    input.addEventListener("input", () => {
+      lastCompletion = "";
+    });
     input.focus();
   }
 
   function completeInput() {
-    const value = input.value.trim().replace(/^:/, "");
-    if (/\s/.test(value)) return;
-    const prefix = value.toLowerCase();
-    const matches = commandNames.filter((name) => name.startsWith(prefix));
-    if (matches.length === 1) input.value = `:${matches[0]} `;
-    else if (matches.length > 1) {
+    const value = input.value;
+    const tokenMatch = value.match(/\S*$/);
+    const token = tokenMatch ? tokenMatch[0] : "";
+    const prefix = value.slice(0, value.length - token.length);
+    const matches = globalThis.VimCommandState.completionCandidates(value, commandNames, aliases);
+    if (matches.length === 1) {
+      input.value = `${prefix}${matches[0]} `;
+    } else if (matches.length > 1) {
       if (lastCompletion !== value) {
         lastCompletion = value;
         appendOutput(matches.join("  "));
       } else {
         const common = matches.reduce((prefixValue, item) => {
           let length = 0;
-          while (length < prefixValue.length && prefixValue[length] === item[length]) length += 1;
+          while (length < prefixValue.length && prefixValue[length] === item[length]) {
+            length += 1;
+          }
           return prefixValue.slice(0, length);
         });
-        if (common.length > prefix.length) input.value = `:${common}`;
+        if (common.length > token.length) input.value = `${prefix}${common}`;
       }
     }
+  }
+
+  function showHistory(command) {
+    const requested = Number(command.args[0] || 20);
+    const count = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 100)) : 20;
+    const entries = history.slice(-count);
+    appendOutput(
+      entries.length
+        ? entries
+            .map((entry, index) => `${history.length - entries.length + index + 1}: ${entry}`)
+            .join("\n")
+        : "Command history is empty.",
+    );
+  }
+
+  async function handleLocalCommand(command) {
+    if (command.name === "alias") {
+      if (command.args.length < 2) {
+        appendOutput("Alias syntax: :alias name command [arguments] [, destination].", "error");
+        return true;
+      }
+      const [name, targetName, ...args] = command.args;
+      const target = globalThis.VimCommandRegistry.get(targetName);
+      if (!target || target.status !== "implemented") {
+        appendOutput(`Alias target is not an implemented command: ${targetName}`, "error");
+        return true;
+      }
+      try {
+        aliases[name.toLowerCase()] = globalThis.VimCommandState.createAlias(
+          name,
+          { name: targetName.toLowerCase(), args, destination: command.destination },
+          commandNames,
+        );
+        await persistState();
+        appendOutput(`Alias :${name.toLowerCase()} created.`);
+      } catch (error) {
+        appendOutput(error.message, "error");
+      }
+      return true;
+    }
+
+    if (command.name === "unalias") {
+      const name = command.args[0]?.toLowerCase();
+      if (!name || !Object.hasOwn(aliases, name)) {
+        appendOutput(name ? `No alias named :${name} exists.` : "Usage: :unalias name.", "error");
+      } else {
+        delete aliases[name];
+        await persistState();
+        appendOutput(`Alias :${name} removed.`);
+      }
+      return true;
+    }
+
+    if (command.name === "aliases") {
+      const entries = Object.entries(aliases).map(([name, alias]) => {
+        const target = alias.command;
+        return `:${name} → :${target.name} ${target.args.join(" ")}`.trim();
+      });
+      appendOutput(entries.length ? entries.join("\n") : "No command aliases are defined.");
+      return true;
+    }
+
+    if (command.name === "history") {
+      showHistory(command);
+      return true;
+    }
+
+    if (command.name === "clear_history") {
+      history.length = 0;
+      historyIndex = 0;
+      await persistState();
+      appendOutput("Command history cleared.");
+      return true;
+    }
+
+    if (command.name === "set") {
+      if (command.args.length !== 2) {
+        appendOutput(
+          "Preference syntax: :set history_limit 100 | search_engine duckduckgo|google|bing.",
+          "error",
+        );
+        return true;
+      }
+      try {
+        preferences = globalThis.VimCommandState.updatePreference(
+          preferences,
+          command.args[0],
+          command.args[1],
+        );
+        if (command.args[0] === "history_limit") {
+          const normalized = globalThis.VimCommandState.normalizeHistory(
+            history,
+            preferences.historyLimit,
+          );
+          history.splice(0, history.length, ...normalized);
+        }
+        await persistState();
+        appendOutput(`${command.args[0]} set to ${command.args[1]}.`);
+      } catch (error) {
+        appendOutput(error.message, "error");
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  function commandForExecution(command) {
+    if (command.name !== "search") return command;
+    const query = command.args.join(" ").trim();
+    if (!query) return command;
+    return {
+      ...command,
+      name: "open",
+      args: [globalThis.VimCommandState.buildSearchUrl(query, preferences.searchEngine)],
+    };
   }
 
   async function runCommand() {
     const raw = input.value.trim();
     if (!raw) return;
+    await stateReady;
     try {
       const parsed = globalThis.VimCommandParser.parseCommandLine(raw);
       if (parsed.commands.length > 1) {
@@ -92,22 +256,30 @@
         input.value = "";
         return;
       }
-      if (history.at(-1) !== raw) history.push(raw);
-      if (history.length > HISTORY_LIMIT) history.shift();
+      const updatedHistory = globalThis.VimCommandState.appendHistory(
+        history,
+        raw,
+        preferences.historyLimit,
+      );
+      history.splice(0, history.length, ...updatedHistory);
       historyIndex = history.length;
-      for (const command of parsed.commands) {
+      await persistState();
+
+      for (const parsedCommand of parsed.commands) {
+        const command = globalThis.VimCommandState.expandAlias(parsedCommand, aliases);
         const definition = globalThis.VimCommandRegistry.get(command.name);
         if (!definition || definition.status !== "implemented") {
-          const suggestions = globalThis.VimCommandSuggestions.suggestCommands(
-            command.name,
-            commandNames,
-          );
+          const suggestions = globalThis.VimCommandSuggestions.suggestCommands(command.name, [
+            ...commandNames,
+            ...Object.keys(aliases),
+          ]);
           const hint = suggestions.length
             ? ` Did you mean ${suggestions.map((name) => `:${name}`).join(", ")}?`
             : " Try :help.";
           appendOutput(`Unknown or not-yet-implemented command: ${command.name}.${hint}`, "error");
           continue;
         }
+        if (await handleLocalCommand(command)) continue;
         if (command.name === "help") {
           const allCommands = globalThis.VimCommandRegistry.all();
           const available = allCommands
@@ -118,18 +290,21 @@
             .map((item) => `:${item.name}`);
           appendOutput(`Available: ${available.join(", ")}`);
           appendOutput(`Planned: ${planned.join(", ")}`);
-          appendOutput("Examples: :tabs twitch · :count audible · :duplicates");
+          appendOutput(
+            "Examples: :tabs twitch · :alias stream move twitch, new_window · :search cats",
+          );
         } else if (command.name === "version") {
           appendOutput("Firefox Vim Controls v0.1.0");
         } else if (command.name === "clear") {
           output.replaceChildren();
         } else {
+          const requestCommand = commandForExecution(command);
           const response = await browser.runtime.sendMessage({
             type: "VIM_COMMAND_REQUEST",
             command: {
-              name: command.name,
-              args: command.args,
-              destination: command.destination,
+              name: requestCommand.name,
+              args: requestCommand.args,
+              destination: requestCommand.destination,
             },
           });
           if (!response?.ok) {
@@ -145,7 +320,7 @@
     }
   }
 
-  function handlePromptKeydown(event) {
+  async function handlePromptKeydown(event) {
     if (event.key === "Escape") {
       event.preventDefault();
       closePanel();
@@ -154,18 +329,36 @@
       runCommand();
     } else if (event.key === "Tab") {
       event.preventDefault();
+      await stateReady;
       completeInput();
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
+      await stateReady;
       if (history.length) {
         historyIndex = Math.max(0, historyIndex - 1);
         input.value = history[historyIndex];
       }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
+      await stateReady;
       historyIndex = Math.min(history.length, historyIndex + 1);
       input.value = history[historyIndex] || "";
     }
+  }
+
+  if (!privateContext && browser.runtime.onMessage) {
+    browser.runtime.onMessage.addListener((message) => {
+      if (message?.type !== "VIM_STATE_UPDATED") return;
+      const stored = message.state || {};
+      preferences = globalThis.VimCommandState.normalizePreferences(stored.preferences);
+      history.splice(
+        0,
+        history.length,
+        ...globalThis.VimCommandState.normalizeHistory(stored.history, preferences.historyLimit),
+      );
+      aliases = globalThis.VimCommandState.normalizeAliases(stored.aliases, commandNames);
+      historyIndex = history.length;
+    });
   }
 
   document.addEventListener(
