@@ -47,7 +47,11 @@
     { name: "forward", status: "implemented", summary: "Go forward in matching tab history" },
     { name: "refresh", status: "implemented", summary: "Refresh matching tabs" },
     { name: "home", status: "implemented", summary: "Open Firefox's home page" },
-    { name: "stop", status: "planned", summary: "Stop loading (not exposed by a safe WebExtensions API)" },
+    {
+      name: "stop",
+      status: "planned",
+      summary: "Stop loading (not exposed by a safe WebExtensions API)",
+    },
   ];
 
   const registry = {
