@@ -41,6 +41,13 @@
     },
     { name: "reverse", status: "implemented", summary: "Reverse matching tab order" },
     { name: "shuffle", status: "implemented", summary: "Shuffle matching tab order" },
+    { name: "open", status: "implemented", summary: "Open a URL or shortcut" },
+    { name: "search", status: "implemented", summary: "Search the web" },
+    { name: "back", status: "implemented", summary: "Go back in matching tab history" },
+    { name: "forward", status: "implemented", summary: "Go forward in matching tab history" },
+    { name: "refresh", status: "implemented", summary: "Refresh matching tabs" },
+    { name: "home", status: "implemented", summary: "Open Firefox's home page" },
+    { name: "stop", status: "planned", summary: "Stop loading (not exposed by a safe WebExtensions API)" },
   ];
 
   const registry = {
