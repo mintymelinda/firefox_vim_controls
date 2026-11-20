@@ -301,10 +301,7 @@ try {
     "Opened http://unrelated-fixture:4173/untouched in new tab",
   );
   await delay(500);
-  await runCommand(
-    ":move domain:fixture, new_window",
-    "Moved 2 tab(s) into new window",
-  );
+  await runCommand(":move domain:fixture, new_window", "Moved 2 tab(s) into new window");
   await runCommand(":windows", "Window ");
   const windowLines = await executeScript(
     sessionId,
