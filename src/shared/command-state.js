@@ -183,6 +183,10 @@
       candidates = [...commandNames, ...Object.keys(aliases)];
     } else if (parts[0] === "alias" && parts.length >= 2) {
       candidates = commandNames;
+    } else if (parts[0] === "session" && parts.length <= 2) {
+      candidates = ["save", "load", "append", "list", "delete", "restore"];
+    } else if (parts[0] === "workspace" && parts.length <= 2) {
+      candidates = ["create", "switch", "list", "rename"];
     } else if (parts[0] === "set" && parts[1] === "search_engine") {
       candidates = Object.keys(SEARCH_ENGINES);
     } else if (parts[0] === "set" && parts.length <= 2) {
