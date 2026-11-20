@@ -43,7 +43,7 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:pin [selector]` / `:unpin [selector]` — pin or unpin matching tabs.
 - `:discard [selector] [--confirm]` — unload inactive matching tabs; active tabs are skipped.
 - `:open URL|shortcut [, new_tab|new_window]` — navigate the focused tab or open a destination in a new tab/window. Supports `twitch`, `youtube`, and `github` shortcuts.
-- `:search terms [, new_tab|new_window]` — search DuckDuckGo from the focused tab or a new tab/window.
+- `:search terms [, new_tab|new_window]` — search using the selected engine (DuckDuckGo by default) from the focused tab or a new tab/window.
 - `:back [selector]` / `:forward [selector]` — navigate matching tabs through their history; defaults to the active tab.
 - `:refresh [selector] [--confirm]` — refresh matching tabs; defaults to the active tab and previews multi-tab refreshes.
 - `:home` — navigate the active tab to Firefox's `about:home` page.
