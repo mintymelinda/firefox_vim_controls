@@ -243,7 +243,9 @@
           appendOutput(response?.error || "Could not list macros.", "error");
           return "error";
         }
-        const lines = response.macros.map((macro) => `:${macro.name} (${macro.commands} command(s))`);
+        const lines = response.macros.map(
+          (macro) => `:${macro.name} (${macro.commands} command(s))`,
+        );
         appendOutput(lines.length ? lines.join("\\n") : "No macros are defined.");
         return true;
       }
@@ -263,7 +265,10 @@
         appendOutput("Macro run must be expanded by the command runner.", "error");
         return "error";
       }
-      appendOutput("Macro syntax: :macro define name && command [&& command ...], :macro run name, :macro list, or :macro delete name.", "error");
+      appendOutput(
+        "Macro syntax: :macro define name && command [&& command ...], :macro run name, :macro list, or :macro delete name.",
+        "error",
+      );
       return "error";
     }
 
@@ -299,7 +304,10 @@
       const first = parsed.commands[0];
       if (first.name === "macro" && first.args[0] === "define") {
         if (first.args.length !== 2 || parsed.commands.length < 2 || first.destination.length) {
-          appendOutput("Macro definition syntax: :macro define name && command [&& command ...].", "error");
+          appendOutput(
+            "Macro definition syntax: :macro define name && command [&& command ...].",
+            "error",
+          );
           input.value = "";
           return;
         }
@@ -320,8 +328,13 @@
         input.value = "";
         return;
       }
-      if (parsed.commands.some((command) => command.name === "macro" && command.args[0] === "define")) {
-        appendOutput("Macro definitions must be the first and only command on their line.", "error");
+      if (
+        parsed.commands.some((command) => command.name === "macro" && command.args[0] === "define")
+      ) {
+        appendOutput(
+          "Macro definitions must be the first and only command on their line.",
+          "error",
+        );
         input.value = "";
         return;
       }
@@ -404,7 +417,9 @@
         }
         for (const line of response.output || []) appendOutput(line);
         if (response.requiresConfirmation) {
-          appendOutput("Command chain stopped here. Confirm this action separately with --confirm.");
+          appendOutput(
+            "Command chain stopped here. Confirm this action separately with --confirm.",
+          );
         }
         return response;
       });
@@ -414,7 +429,6 @@
       appendOutput(error.message, "error");
     }
   }
-
 
   async function handlePromptKeydown(event) {
     if (event.key === "Escape") {
