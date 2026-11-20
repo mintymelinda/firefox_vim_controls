@@ -10,7 +10,13 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": [\n        "src/shared/parser.js",\n        "src/shared/activation.js",\n        "src/shared/registry.js",\n        "src/shared/suggestions.js",\n        "src/content/entry.js"\n      ],
+      "js": [
+        "src/shared/parser.js",
+        "src/shared/activation.js",
+        "src/shared/registry.js",
+        "src/shared/suggestions.js",
+        "src/content/entry.js"
+      ],
       "run_at": "document_idle"
     }
   ],
