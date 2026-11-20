@@ -75,10 +75,13 @@ jobs:
             exit 1
           fi
 
-      - name: Prepare writable Mozilla signing output directory
+      - name: Prepare writable Mozilla signing source and output directories
         shell: bash
         run: |
+          test -d dist
+          sudo chown -R "$(id -u):$(id -g)" dist
           sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" artifacts/signed
+          test -w dist
           test -w artifacts/signed
 
       - name: Sign extension through Mozilla AMO
