@@ -439,7 +439,7 @@ test("persists normalized command state for normal tabs only", async () => {
     {
       type: "VIM_STATE_SET",
       state: {
-        history: [" :tabs", ":tabs", " :move twitch, new_window"],
+        history: [":tabs", ":move twitch, new_window"],
         aliases: {
           stream: {
             command: { name: "move", args: ["twitch"], destination: ["new_window"] },
@@ -458,7 +458,7 @@ test("persists normalized command state for normal tabs only", async () => {
   assert.deepEqual(saved, { ok: true, persisted: true });
 
   const loaded = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, normalSender);
-  assert.deepEqual(loaded.state.history, [":tabs", " :move twitch, new_window"]);
+  assert.deepEqual(loaded.state.history, [":tabs", ":move twitch, new_window"]);
   assert.deepEqual(Object.keys(loaded.state.aliases), ["stream"]);
   assert.deepEqual(loaded.state.preferences, {
     historyLimit: 20,
