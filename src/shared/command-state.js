@@ -36,6 +36,10 @@
     "--confirm",
   ];
 
+  function canPersistState(privateContext, storage) {
+    return !privateContext && Boolean(storage);
+  }
+
   function normalizeHistory(value, limit = DEFAULT_PREFERENCES.historyLimit) {
     const maximum = Number.isInteger(limit) && limit >= 1 ? limit : DEFAULT_PREFERENCES.historyLimit;
     if (!Array.isArray(value)) return [];
@@ -202,6 +206,7 @@
   const api = {
     appendHistory,
     buildSearchUrl,
+    canPersistState,
     completionCandidates,
     createAlias,
     expandAlias,
