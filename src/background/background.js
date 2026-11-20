@@ -69,7 +69,6 @@
     return null;
   }
 
-
   const SESSION_STORAGE_KEYS = ["fvcSessions", "fvcLastSessionName", "fvcWorkspaces"];
 
   async function readSessionCollections(browserApi) {
@@ -148,7 +147,8 @@
   }
 
   async function appendSnapshot(snapshot, focusedWindow, browserApi) {
-    if (!focusedWindow) throw new Error("There is no focused normal browser window to append into.");
+    if (!focusedWindow)
+      throw new Error("There is no focused normal browser window to append into.");
     const normalized = root.VimSessionState.normalizeSnapshot(snapshot);
     if (!normalized) throw new Error("The saved snapshot contains no restorable tabs.");
     const createdTabs = [];
@@ -194,7 +194,10 @@
     const name = nameParts.join(" ").trim();
     const { sessions, lastSessionName } = await readSessionCollections(browserApi);
     if (action === "list") {
-      const entries = root.VimSessionState.listRecords(sessions, root.VimSessionState.LIMITS.sessions);
+      const entries = root.VimSessionState.listRecords(
+        sessions,
+        root.VimSessionState.LIMITS.sessions,
+      );
       return {
         ok: true,
         output: entries.length
@@ -241,7 +244,9 @@
         output: [`Loaded session "${key}" into ${created.length} new window(s).`],
       };
     }
-    throw new Error("Session syntax: :session save|load|append|list|delete name, or :session restore.");
+    throw new Error(
+      "Session syntax: :session save|load|append|list|delete name, or :session restore.",
+    );
   }
 
   async function executeWorkspaceCommand(command, windows, focusedWindow, browserApi) {
@@ -286,7 +291,10 @@
       const record = workspaces[name];
       if (!record) throw new Error(`No workspace named "${name}" exists.`);
       const created = await restoreSnapshot(record.snapshot, browserApi);
-      return { ok: true, output: [`Opened workspace "${name}" in ${created.length} new window(s).`] };
+      return {
+        ok: true,
+        output: [`Opened workspace "${name}" in ${created.length} new window(s).`],
+      };
     }
     if (action === "rename") {
       const [oldName, newName] = nameParts;
@@ -299,7 +307,9 @@
       await browserApi.storage.local.set({ fvcWorkspaces: updated });
       return { ok: true, output: [`Renamed workspace "${oldName}" to "${newName}".`] };
     }
-    throw new Error("Workspace syntax: :workspace create|switch name, :workspace list, or :workspace rename old new.");
+    throw new Error(
+      "Workspace syntax: :workspace create|switch name, :workspace list, or :workspace rename old new.",
+    );
   }
 
   const STATE_STORAGE_KEYS = ["fvcCommandHistory", "fvcCommandAliases", "fvcCommandPreferences"];
@@ -1098,11 +1108,11 @@
     const validationError = validateCommandRequest(message);
     if (validationError) return { ok: false, error: validationError };
     const { command } = message;
-    if (
-      sender.tab?.incognito &&
-      ["session", "workspace"].includes(command.name)
-    ) {
-      return { ok: false, error: "Session and workspace commands are disabled in private browsing." };
+    if (sender.tab?.incognito && ["session", "workspace"].includes(command.name)) {
+      return {
+        ok: false,
+        error: "Session and workspace commands are disabled in private browsing.",
+      };
     }
     if (!IMPLEMENTED_COMMANDS.has(command.name)) {
       return { ok: false, error: `Command is not implemented yet: ${command.name}` };
