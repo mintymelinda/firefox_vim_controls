@@ -1,0 +1,109 @@
+name: Mozilla-signed release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mozilla-signing-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    name: Validate and sign with Mozilla
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Require an authorized release ref
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error::Manual signing must be dispatched from main."
+            exit 1
+          fi
+
+      - name: Validate version and tag
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./manifest.json').version")"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "${VERSION}" != "${PACKAGE_VERSION}" ]]; then
+            echo "::error::manifest.json and package.json versions differ."
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "v${VERSION}" ]]; then
+            echo "::error::Release tag must be v${VERSION}; got ${GITHUB_REF_NAME}."
+            exit 1
+          fi
+          echo "Signing Firefox Vim Controls ${VERSION}"
+
+      - name: Build the project's Docker validation and Firefox test images
+        run: docker compose build app browser-tests browser-tests-115 fixture firefox firefox-115
+
+      - name: Run formatting, lint, unit tests, build, and package checks
+        run: docker compose run --rm app npm run check
+
+      - name: Run real Firefox Stable browser smoke tests
+        run: docker compose run --rm browser-tests npm run test:browser
+
+      - name: Run Firefox 115 ESR browser smoke tests
+        run: docker compose run --rm browser-tests-115 npm run test:browser
+
+      - name: Verify Mozilla signing credentials are configured
+        env:
+          AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
+          AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+        shell: bash
+        run: |
+          if [[ -z "${AMO_API_KEY}" || -z "${AMO_API_SECRET}" ]]; then
+            echo "::error::Configure AMO_API_KEY and AMO_API_SECRET repository secrets before signing."
+            exit 1
+          fi
+
+      - name: Sign extension through Mozilla AMO
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+        run: |
+          npx --yes web-ext@10.8.0 sign \
+            --source-dir dist \
+            --artifacts-dir artifacts/signed \
+            --channel unlisted \
+            --timeout 900000 \
+            --approval-timeout 900000
+
+      - name: Verify signed XPI exists
+        shell: bash
+        run: |
+          mapfile -t SIGNED_XPIS < <(find artifacts/signed -maxdepth 1 -type f -name '*.xpi' -print)
+          if [[ "${#SIGNED_XPIS[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one Mozilla-signed XPI; found ${#SIGNED_XPIS[@]}."
+            find artifacts/signed -maxdepth 2 -type f -print
+            exit 1
+          fi
+          echo "Mozilla-signed artifact: ${SIGNED_XPIS[0]}"
+
+      - name: Upload unsigned and Mozilla-signed release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-vim-controls-${{ github.ref_name }}-mozilla-signed
+          path: |
+            artifacts/firefox-vim-controls-*.zip
+            artifacts/signed/*.xpi
+          if-no-files-found: error
+          retention-days: 90

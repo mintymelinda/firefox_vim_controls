@@ -21,7 +21,47 @@ The distributable is written to:
 
 `artifacts/firefox-vim-controls-<manifest-version>.zip`
 
-The ZIP is an upload artifact; it is not AMO-signed by this repository.
+The ZIP is an upload artifact; it is not AMO-signed by this repository's normal CI workflow.
+
+## Mozilla-signed self-distributed release
+
+The repository includes [the Mozilla-signed release workflow](../.github/workflows/mozilla-signed-release.yml). It submits the built extension to Mozilla Add-ons (AMO) for **unlisted signing** and publishes the returned signed `.xpi` as a GitHub Actions artifact. Unlisted signing is intended for self-distribution: it signs the add-on without creating a public AMO listing.
+
+### One-time setup
+
+1. Sign in to the [AMO Developer Hub](https://addons.mozilla.org/developers/).
+2. Open the [API credentials page](https://addons.mozilla.org/developers/addon/api/key/). Generate personal API credentials for the account that owns the add-on.
+3. In the GitHub repository, open **Settings → Secrets and variables → Actions**.
+4. Add these repository secrets:
+   - `AMO_API_KEY`: the AMO JWT issuer / API key.
+   - `AMO_API_SECRET`: the AMO JWT secret. Treat this as a password; never commit it or print it in workflow logs.
+
+The signing job fails early with a clear message if either secret is missing. Credentials are only exposed to the signing steps, not to pull-request CI.
+
+### Run a signed release
+
+A signed release can be started in either of these ways:
+
+- Push a version tag matching the manifest, such as `v0.1.0`.
+- In GitHub, open **Actions → Mozilla-signed release → Run workflow**, selecting the `main` branch.
+
+The workflow checks that `manifest.json` and `package.json` versions match, and that a pushed tag exactly matches that version. It then runs the project's complete formatting, lint, unit-test, build, and package checks before submitting the unpacked build to AMO with the `unlisted` channel. The workflow pins Mozilla's `web-ext` signing client to version `10.8.0`.
+
+On success, download the artifact named `firefox-vim-controls-<ref>-mozilla-signed` from the completed workflow run. It contains both the unsigned ZIP for traceability and the Mozilla-signed `.xpi`. Distribute/install the signed `.xpi`, not the unsigned ZIP. The XPI is produced by Mozilla; the workflow does not fabricate or relabel the unsigned ZIP as signed.
+
+AMO performs its own automated validation and may require additional review. A successful workflow means Mozilla returned a signed XPI; it does not mean this add-on is publicly listed on AMO. A public AMO listing is a separate release path and requires a listed submission plus the listing metadata and review process.
+
+### Signed release checklist
+
+- [ ] AMO API credentials are created for the add-on owner.
+- [ ] `AMO_API_KEY` and `AMO_API_SECRET` are configured as GitHub Actions repository secrets.
+- [ ] Manifest and package versions match.
+- [ ] The release tag matches the manifest version, if using a tag.
+- [ ] Project validation and both real-Firefox smoke suites pass.
+- [ ] AMO signing succeeds and the workflow produces exactly one `.xpi`.
+- [ ] The signed `.xpi` is downloaded and tested in a clean Firefox profile.
+- [ ] Manual compatibility, private-window, privileged-page, and accessibility checks are recorded.
+- [ ] Only the signed `.xpi` is distributed.
 
 ## Versioning
 
@@ -32,18 +72,7 @@ For a release:
 4. Run the complete Docker/Compose check and both browser smoke suites.
 5. Review the ZIP contents and confirm the manifest version and required locale/scripts are present.
 6. Record any additional manual compatibility and accessibility checks performed against the release candidate.
-
-Use a new version for each AMO submission. Do not reuse a previously submitted version.
-
-## AMO submission and signing
-
-1. Sign in to the Mozilla Add-ons Developer Hub.
-2. Submit the generated ZIP as a new version or update to the existing add-on.
-3. Follow AMO's validation and review feedback; repository package validation does not replace AMO's own checks.
-4. Distribute the signed artifact provided by AMO.
-5. Verify the signed version installs and runs in the supported Firefox channel.
-
-Do not describe the locally generated ZIP as signed. AMO performs the production signing step.
+7. Use a new version for each AMO submission. Do not reuse a previously submitted version.
 
 ## Temporary local installation
 
