@@ -215,9 +215,10 @@ try {
     await sendKeys(sessionId, commandInput, command);
     await sendKeys(sessionId, commandInput, "\uE007");
     return waitFor(`command response for ${command}`, async () => {
-      const element = await findElement(sessionId, "#fvc-command-panel .fvc-output");
-      if (!element) return null;
-      const text = await request("GET", `/session/${sessionId}/element/${element}/text`);
+      const text = await executeScript(
+        sessionId,
+        "return document.querySelector('#fvc-command-panel .fvc-output')?.lastElementChild?.textContent || ''",
+      );
       return text.includes(expectedOutput) ? text : null;
     });
   }
