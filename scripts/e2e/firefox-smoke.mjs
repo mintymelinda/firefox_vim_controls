@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 const root = resolve(import.meta.dirname, "../..");
 const project = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 const extensionPath = resolve(root, "artifacts", `firefox-vim-controls-${project.version}.zip`);
+const sharedExtensionPath = `/extension-artifacts/firefox-vim-controls-${project.version}.zip`;
+await mkdir("/extension-artifacts", { recursive: true });
+await copyFile(extensionPath, sharedExtensionPath);
 const remoteUrl = (process.env.SELENIUM_REMOTE_URL || "http://firefox:4444").replace(/\/$/, "");
 const fixtureUrl = process.env.FIXTURE_URL || "http://fixture:4173/";
 
@@ -22,9 +25,8 @@ async function request(method, path, body) {
   });
   const payload = await response.json();
   if (!response.ok || payload.value?.error) {
-    throw new Error(
-      `WebDriver ${method} ${path} failed: ${payload.value?.message || response.statusText}`,
-    );
+    const message = payload.value?.message || payload.message || JSON.stringify(payload);
+    throw new Error(`WebDriver ${method} ${path} failed: ${message}`);
   }
   return payload.value;
 }
@@ -47,6 +49,10 @@ async function sendKeys(sessionId, elementId, text) {
     text,
     value: Array.from(text),
   });
+}
+
+async function executeScript(sessionId, script, args = []) {
+  return request("POST", `/session/${sessionId}/execute/sync`, { script, args });
 }
 
 async function waitFor(description, callback, timeoutMs = 8000) {
@@ -72,15 +78,22 @@ try {
   sessionId = session.sessionId;
   assert.ok(sessionId, "Firefox WebDriver session should be created");
   const capabilities = session.capabilities || {};
-  console.log(
-    `Firefox ${capabilities.browserVersion || "unknown"}; geckodriver ${capabilities["moz:geckodriverVersion"] || "unknown"}`,
-  );
+  const browserVersion = capabilities.browserVersion || "unknown";
+  const geckodriverVersion = capabilities["moz:geckodriverVersion"] || "unknown";
+  console.log(`Firefox ${browserVersion}; geckodriver ${geckodriverVersion}`);
+  const expectedMajor = process.env.EXPECTED_FIREFOX_MAJOR;
+  if (expectedMajor) {
+    assert.equal(
+      browserVersion.split(".")[0],
+      expectedMajor,
+      `browser-test target must use Firefox ${expectedMajor}.x`,
+    );
+  }
 
-  const addon = await readFile(extensionPath);
+  // The path form works with Firefox 115 ESR and current Firefox Marionette handlers.
   const installedId = await request("POST", `/session/${sessionId}/moz/addon/install`, {
-    addon: addon.toString("base64"),
+    path: sharedExtensionPath,
     temporary: true,
-    allowPrivateBrowsing: false,
   });
   assert.ok(installedId, "development extension should install temporarily");
 
@@ -91,23 +104,90 @@ try {
 
   const body = await findElement(sessionId, "body");
   assert.ok(body, "fixture body should be available");
-  await sendKeys(sessionId, body, ":");
-  let prompt = await waitFor("prompt activation on an ordinary page", () =>
-    findElement(sessionId, "#fvc-command-panel"),
+  const trigger = await findElement(sessionId, "#fixture-button");
+  assert.ok(trigger, "fixture should expose a focusable trigger button");
+  await sendKeys(sessionId, body, "\uE004\uE004");
+  assert.equal(
+    await executeScript(sessionId, "return document.activeElement.id"),
+    "fixture-button",
+    "keyboard Tab navigation should reach the fixture button",
+  );
+  await sendKeys(sessionId, trigger, ":");
+  assert.ok(
+    await waitFor("prompt activation on an ordinary page", () =>
+      findElement(sessionId, "#fvc-command-panel"),
+    ),
+    "prompt should activate on an ordinary page",
   );
 
   const promptInput = await findElement(sessionId, "#fvc-command-panel input");
-  assert.ok(promptInput, "prompt should create and focus its input");
-  const focused = await request("POST", `/session/${sessionId}/execute/sync`, {
-    script: "return document.activeElement === document.querySelector('#fvc-command-panel input')",
-    args: [],
-  });
-  assert.equal(focused, true, "opening the prompt should move focus into its input");
+  assert.ok(promptInput, "prompt should create its input");
+  assert.equal(
+    await executeScript(
+      sessionId,
+      "return document.activeElement === document.querySelector('#fvc-command-panel input')",
+    ),
+    true,
+    "opening the prompt should move focus into its input",
+  );
+
+  const accessibility = await executeScript(
+    sessionId,
+    `const panel = document.querySelector("#fvc-command-panel");
+     const field = panel?.querySelector("input");
+     const log = panel?.querySelector('[role="log"]');
+     const hint = panel?.querySelector("#fvc-command-hint");
+     return {
+       role: panel?.getAttribute("role"),
+       modal: panel?.getAttribute("aria-modal"),
+       name: panel?.getAttribute("aria-label"),
+       describedBy: panel?.getAttribute("aria-describedby"),
+       hintId: hint?.id,
+       hintText: hint?.textContent,
+       inputName: field?.getAttribute("aria-label"),
+       logRole: log?.getAttribute("role"),
+       live: log?.getAttribute("aria-live"),
+       relevant: log?.getAttribute("aria-relevant"),
+       atomic: log?.getAttribute("aria-atomic"),
+     };`,
+  );
+  assert.deepEqual(
+    accessibility,
+    {
+      role: "dialog",
+      modal: "true",
+      name: "Firefox Vim Controls command prompt",
+      describedBy: "fvc-command-hint",
+      hintId: "fvc-command-hint",
+      hintText: "Enter: run · Tab: complete · ↑/↓: history · Esc: close",
+      inputName: "Command",
+      logRole: "log",
+      live: "polite",
+      relevant: "additions text",
+      atomic: "false",
+    },
+    "prompt should expose its expected accessible dialog, input, hint, and live-log semantics",
+  );
+
+  await executeScript(
+    sessionId,
+    "document.querySelector('#fixture-button').focus(); return document.activeElement.id",
+  );
+  assert.equal(
+    await executeScript(sessionId, "return document.activeElement.id"),
+    "fvc-command-input",
+    "focus leaving the modal prompt should be returned to its input",
+  );
 
   await sendKeys(sessionId, promptInput, "\uE00C");
   await waitFor(
     "prompt dismissal with Escape",
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
+  );
+  assert.equal(
+    await executeScript(sessionId, "return document.activeElement.id"),
+    "fixture-button",
+    "closing the prompt should restore focus to the previously focused page control",
   );
 
   const editable = await findElement(sessionId, "#fixture-input");
@@ -122,10 +202,12 @@ try {
 
   await sendKeys(sessionId, editable, "\uE00C");
   await sendKeys(sessionId, body, ":");
-  prompt = await waitFor("Escape-then-colon activation", () =>
-    findElement(sessionId, "#fvc-command-panel"),
+  assert.ok(
+    await waitFor("Escape-then-colon activation", () =>
+      findElement(sessionId, "#fvc-command-panel"),
+    ),
+    "prompt should open after leaving editable focus",
   );
-  assert.ok(prompt, "prompt should open after leaving editable focus");
 
   const commandInput = await findElement(sessionId, "#fvc-command-panel input");
   await sendKeys(sessionId, commandInput, ":tabs");
@@ -137,6 +219,39 @@ try {
     return text.includes("Firefox Vim Controls fixture") ? text : null;
   });
   assert.match(output, /Firefox Vim Controls fixture/);
+  await waitFor(
+    "command input reset after background response",
+    async () =>
+      await executeScript(
+        sessionId,
+        "return document.querySelector('#fvc-command-panel input').value === ''",
+      ),
+  );
+
+  const initialOutputCount = await executeScript(
+    sessionId,
+    "return document.querySelector('#fvc-command-panel .fvc-output').childElementCount",
+  );
+  for (let index = 0; index < 201; index += 1) {
+    await sendKeys(sessionId, commandInput, ":version");
+    await sendKeys(sessionId, commandInput, "\uE007");
+    const expectedCount = Math.min(initialOutputCount + index + 1, 200);
+    await waitFor(`version output ${index + 1}`, async () => {
+      const state = await executeScript(
+        sessionId,
+        "return { count: document.querySelector('#fvc-command-panel .fvc-output').childElementCount, value: document.querySelector('#fvc-command-panel input').value }",
+      );
+      return state.count === expectedCount && state.value === "" ? state : null;
+    });
+  }
+  assert.equal(
+    await executeScript(
+      sessionId,
+      "return document.querySelector('#fvc-command-panel .fvc-output').childElementCount",
+    ),
+    200,
+    "prompt output should retain no more than 200 entries",
+  );
 
   await sendKeys(sessionId, commandInput, "\uE00C");
   await waitFor(
@@ -153,7 +268,7 @@ try {
   );
 
   console.log(
-    "Firefox browser smoke tests passed (activation, editable safety, focus, command round-trip, about:blank boundary).",
+    "Firefox browser smoke tests passed (activation, editable safety, accessible semantics, focus containment/restoration, output retention, command round-trip, about:blank boundary).",
   );
 } finally {
   if (sessionId) {
