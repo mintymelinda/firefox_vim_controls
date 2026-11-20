@@ -37,7 +37,7 @@ async function findElement(sessionId, selector) {
     });
     return result["element-6066-11e4-a52e-4f735466cecf"];
   } catch (error) {
-    if (error.message.includes("no such element")) return null;
+    if (/no such element|unable to locate element/i.test(error.message)) return null;
     throw error;
   }
 }
