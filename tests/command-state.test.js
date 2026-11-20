@@ -116,12 +116,8 @@ test("completes command names, aliases, selectors, destinations, and preference 
   assert.ok(
     state.completionCandidates(":set search_engine g", commandNames, aliases).includes("google"),
   );
-  assert.ok(
-    state.completionCandidates(":session s", commandNames, aliases).includes("save"),
-  );
-  assert.ok(
-    state.completionCandidates(":workspace sw", commandNames, aliases).includes("switch"),
-  );
+  assert.ok(state.completionCandidates(":session s", commandNames, aliases).includes("save"));
+  assert.ok(state.completionCandidates(":workspace sw", commandNames, aliases).includes("switch"));
 });
 
 test("never persists command state from private browsing contexts", () => {
