@@ -9,6 +9,7 @@
       "src/shared/selectors.js",
       "src/shared/registry.js",
       "src/shared/command-state.js",
+      "src/shared/session-state.js",
       "src/background/background.js"
     ]
   },
