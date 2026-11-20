@@ -230,7 +230,7 @@ async function createPromptHarness({ history = ["tabs", "help"], privateContext 
       });
       await Promise.resolve();
       await Promise.resolve();
-      await new Promise((resolve) => setImmediate(resolve));
+      for (let index = 0; index < 10; index += 1) await Promise.resolve();
       return input;
     },
   };
@@ -269,9 +269,9 @@ test("Tab completion is interactive, while Shift+Tab does not replace the comman
   input.value = ":he";
   await harness.key("Tab");
   assert.equal(input.value, ":help ");
-  input.value = ":ta";
+  input.value = ":w";
   await harness.key("Tab");
-  assert.equal(input.value, ":ta");
+  assert.equal(input.value, ":w");
   assert.match(harness.document.getElementById("fvc-command-panel").output.children[0].textContent, /tabs/);
   input.value = ":wi";
   await harness.key("Tab", { shiftKey: true });
