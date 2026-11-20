@@ -11,7 +11,7 @@ RUN set -eux; \
     apt-get install --no-install-recommends -y ca-certificates curl bzip2; \
     curl --fail --silent --show-error --location "${FIREFOX_RELEASE_URL}/SHA256SUMS" -o /tmp/firefox-SHA256SUMS; \
     curl --fail --silent --show-error --location "${FIREFOX_RELEASE_URL}/linux-x86_64/en-US/${FIREFOX_ARCHIVE}" -o "/tmp/${FIREFOX_ARCHIVE}"; \
-    grep "linux-x86_64/en-US/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS > /tmp/firefox-checksum; \
+    grep "linux-x86_64/en-US/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS | sed "s#linux-x86_64/en-US/##" > /tmp/firefox-checksum; \
     (cd /tmp && sha256sum --check firefox-checksum); \
     tar -xjf "/tmp/${FIREFOX_ARCHIVE}" -C /opt; \
     rm -f "/tmp/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS /tmp/firefox-checksum; \
