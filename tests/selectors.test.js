@@ -130,7 +130,6 @@ test("selects blank and discarded tabs without treating ordinary pages as empty"
   );
 });
 
-
 test("selects one-based numeric and tab:N positions in the focused normal window", () => {
   const numericTabs = [
     { id: 3, windowId: 10, index: 0 },
