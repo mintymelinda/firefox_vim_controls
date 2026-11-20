@@ -168,11 +168,7 @@
       const windows = await getNormalWindowSnapshot(browserApi);
       for (const id of entry.cleanupWindowIds) {
         const window = windows.find((item) => item.id === id);
-        if (
-          window &&
-          (window.tabs.length === 0 ||
-            (window.tabs.length === 1 && ["about:blank", "about:newtab"].includes(window.tabs[0].url)))
-        ) {
+        if (window && window.tabs.length === 0) {
           try {
             await browserApi.windows.remove(id);
           } catch (error) {
