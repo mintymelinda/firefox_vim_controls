@@ -39,6 +39,23 @@ services:
       retries: 30
       start_period: 20s
 
+  firefox-115:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.firefox-115
+    shm_size: 2gb
+    environment:
+      SE_NODE_MAX_SESSIONS: "1"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "curl -fsS http://localhost:4444/status | grep -q '\\"ready\\": true'"
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
   browser-tests:
     build:
       context: .
@@ -52,6 +69,25 @@ services:
       FIXTURE_URL: http://fixture:4173/
     depends_on:
       firefox:
+        condition: service_healthy
+      fixture:
+        condition: service_healthy
+    command: npm run test:browser
+
+  browser-tests-115:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - node_modules:/workspace/node_modules
+    environment:
+      SELENIUM_REMOTE_URL: http://firefox-115:4444
+      FIXTURE_URL: http://fixture:4173/
+      EXPECTED_FIREFOX_MAJOR: "115"
+    depends_on:
+      firefox-115:
         condition: service_healthy
       fixture:
         condition: service_healthy
