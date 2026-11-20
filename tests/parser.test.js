@@ -10,7 +10,14 @@ test("parses a simple command and selector arguments", () => {
 
 test("parses comma-separated destinations", () => {
   assert.deepEqual(parseCommandLine("move twitch, new_window"), {
-    commands: [{ name: "move", args: ["twitch"], destination: ["new_window"], raw: "move twitch, new_window" }],
+    commands: [
+      {
+        name: "move",
+        args: ["twitch"],
+        destination: ["new_window"],
+        raw: "move twitch, new_window",
+      },
+    ],
   });
 });
 
