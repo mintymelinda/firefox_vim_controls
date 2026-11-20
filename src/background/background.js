@@ -256,7 +256,7 @@
     );
   }
 
-  async function executeWorkspaceCommand(command, windows, focusedWindow, browserApi) {
+  async function executeWorkspaceCommand(command, windows, _focusedWindow, browserApi) {
     if (!browserApi?.storage?.local || !root.VimSessionState) {
       throw new Error("Local workspace storage is unavailable.");
     }
