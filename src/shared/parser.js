@@ -86,6 +86,7 @@
 
   function parseCommandLine(input) {
     if (typeof input !== "string") throw new TypeError("Command must be text");
+    if (input.length > 2000) throw new Error("Command is too long (maximum 2000 characters)");
     const source = input.trim().replace(/^:/, "");
     if (!source) throw new Error("Enter a command");
     const segments = splitOutsideQuotes(source, "&&");
