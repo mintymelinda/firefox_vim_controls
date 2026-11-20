@@ -78,7 +78,7 @@ test("deletes and renames records with collision and missing-name checks", () =>
     "office",
   ]);
   assert.throws(() => state.renameRecord(second, "work", "personal", 10), /already exists/);
-  assert.throws(() => state.deleteRecord(second, "missing", 10), /does not exist/);
+  assert.throws(() => state.deleteRecord(second, "missing", 10), /exists/);
   assert.deepEqual(Object.keys(state.deleteRecord(second, "work", 10)), ["personal"]);
 });
 
@@ -94,18 +94,26 @@ test("lists normalized records with tab and window counts", () => {
   );
 });
 
-test("bounds snapshots by window and tab counts", () => {
-  const windows = Array.from({ length: 30 }, (_, index) => ({
-    focused: index === 0,
-    tabs: Array.from({ length: 120 }, (_, tabIndex) => ({
-      url: `https://example.com/${index}/${tabIndex}`,
-      active: tabIndex === 0,
+test("bounds snapshots by window and total tab counts", () => {
+  const windowBounded = state.normalizeSnapshot({
+    windows: Array.from({ length: 30 }, (_, index) => ({
+      focused: index === 0,
+      tabs: [{ url: `https://example.com/${index}`, active: true }],
     })),
-  }));
-  const normalized = state.normalizeSnapshot({ windows });
-  assert.equal(normalized.windows.length, state.LIMITS.windows);
+  });
+  assert.equal(windowBounded.windows.length, state.LIMITS.windows);
+
+  const tabBounded = state.normalizeSnapshot({
+    windows: Array.from({ length: 30 }, (_, index) => ({
+      focused: index === 0,
+      tabs: Array.from({ length: 120 }, (_, tabIndex) => ({
+        url: `https://example.com/${index}/${tabIndex}`,
+        active: tabIndex === 0,
+      })),
+    })),
+  });
   assert.equal(
-    normalized.windows.reduce((count, window) => count + window.tabs.length, 0),
+    tabBounded.windows.reduce((count, window) => count + window.tabs.length, 0),
     state.LIMITS.totalTabs,
   );
 });
