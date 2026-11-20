@@ -14,6 +14,7 @@
   const commandNames = globalThis.VimCommandRegistry.names();
 
   function appendOutput(message, kind = "info") {
+    if (!output) return;
     const line = document.createElement("div");
     line.className = `fvc-output fvc-output-${kind}`;
     line.textContent = message;

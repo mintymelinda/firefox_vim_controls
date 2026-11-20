@@ -7,6 +7,9 @@
     if (!message || typeof message !== "object" || message.type !== "VIM_COMMAND_REQUEST") {
       return "Invalid message type";
     }
+    if (Object.keys(message).some((key) => !["type", "command"].includes(key))) {
+      return "Unexpected message properties";
+    }
     const command = message.command;
     if (!command || typeof command !== "object" || Array.isArray(command)) {
       return "Invalid command payload";
