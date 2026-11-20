@@ -62,7 +62,8 @@
 
   function completeInput() {
     const value = input.value.trim().replace(/^:/, "");
-    const prefix = value.split(/\s+/)[0].toLowerCase();
+    if (/\s/.test(value)) return;
+    const prefix = value.toLowerCase();
     const matches = commandNames.filter((name) => name.startsWith(prefix));
     if (matches.length === 1) input.value = `:${matches[0]} `;
     else if (matches.length > 1) {
@@ -85,6 +86,11 @@
     if (!raw) return;
     try {
       const parsed = globalThis.VimCommandParser.parseCommandLine(raw);
+      if (parsed.commands.length > 1) {
+        appendOutput("Command chaining is recognized but execution is deferred to a later phase.");
+        input.value = "";
+        return;
+      }
       if (history.at(-1) !== raw) history.push(raw);
       if (history.length > HISTORY_LIMIT) history.shift();
       historyIndex = history.length;
