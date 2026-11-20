@@ -21,6 +21,10 @@ test("normalizes safe macro names and parsed command objects", () => {
     () => macros.normalizeCommands([{ name: "tabs", args: ["x".repeat(257)], destination: [] }], allowed),
     /invalid or unsupported/,
   );
+  assert.throws(
+    () => macros.normalizeCommands([{ name: "close", args: ["all", "--confirm"], destination: [] }], allowed),
+    /invalid or unsupported/,
+  );
   assert.throws(() => macros.normalizeName("../bad"), /Macro names/);
 });
 
