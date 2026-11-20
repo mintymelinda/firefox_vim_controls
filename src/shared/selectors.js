@@ -1,5 +1,4 @@
 ((root) => {
-
   const HOST_ALIASES = {
     twitch: ["twitch.tv"],
     youtube: ["youtube.com", "youtu.be"],
@@ -9,7 +8,10 @@
   function hostnameOf(tab) {
     if (typeof tab?.url !== "string") return "";
     try {
-      return new URL(tab.url).hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
+      return new URL(tab.url).hostname
+        .toLowerCase()
+        .replace(/\.$/, "")
+        .replace(/^www\./, "");
     } catch {
       return "";
     }
