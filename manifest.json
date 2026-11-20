@@ -3,7 +3,7 @@
   "name": "Firefox Vim Controls",
   "version": "0.1.0",
   "description": "Vim-inspired command interface for managing Firefox tabs and windows.",
-  "permissions": ["tabs"],
+  "permissions": ["tabs", "storage"],
   "background": {
     "scripts": ["src/shared/selectors.js", "src/background/background.js"]
   },
@@ -15,6 +15,7 @@
         "src/shared/activation.js",
         "src/shared/registry.js",
         "src/shared/suggestions.js",
+        "src/shared/command-state.js",
         "src/content/entry.js"
       ],
       "run_at": "document_idle"
