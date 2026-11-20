@@ -26,7 +26,11 @@
 
     return commandNames
       .map((name) => ({ name, score: distance(normalized, name.toLowerCase()) }))
-      .filter(\n        ({ name, score }) =>\n          score <= Math.max(1, Math.ceil(normalized.length / 3)) &&\n          !name.toLowerCase().startsWith(normalized),\n      )
+      .filter(
+        ({ name, score }) =>
+          score <= Math.max(1, Math.ceil(normalized.length / 3)) &&
+          !name.toLowerCase().startsWith(normalized),
+      )
       .sort((left, right) => left.score - right.score || left.name.localeCompare(right.name))
       .slice(0, Math.max(0, limit))
       .map(({ name }) => name);
