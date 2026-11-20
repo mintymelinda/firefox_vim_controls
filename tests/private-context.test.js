@@ -5,8 +5,8 @@ const {
   handleMessage,
 } = require("../src/background/background.js");
 const selectors = require("../src/shared/selectors.js");
+const commandState = require("../src/shared/command-state.js");
 require("../src/shared/registry.js");
-require("../src/shared/command-state.js");
 require("../src/shared/session-state.js");
 require("../src/shared/macro-state.js");
 
@@ -142,10 +142,10 @@ test("private session and workspace saves never persist private URL or title dat
     sessions: api.storageData.fvcSessions,
     workspaces: api.storageData.fvcWorkspaces,
   });
-  assert.match(persisted, /public\.example/);
+  assert.match(persisted, /public[.]example/);
   assert.doesNotMatch(
     persisted,
-    /private\.example|private-in-normal\.example|Private secret title|secret/,
+    /private[.]example|private-in-normal[.]example|Private secret title|secret/,
   );
 });
 
@@ -165,15 +165,14 @@ test("private state reads return an empty transient state without reading storag
     state: {
       history: [],
       aliases: {},
-      preferences: require("../src/shared/command-state.js").normalizePreferences(),
+      preferences: commandState.normalizePreferences(),
     },
   });
   assert.deepEqual(api.calls.gets, []);
   assert.deepEqual(api.calls.sets, []);
   assert.equal(api.calls.windowGets, 0);
-    assert.deepEqual(api.storageData, before);
-  },
-);
+  assert.deepEqual(api.storageData, before);
+});
 
 test("private state writes are acknowledged as transient and never reach storage", async () => {
   const api = createBrowserApi();
@@ -230,22 +229,24 @@ test("private macro get, set, and delete are all rejected before storage access"
 test(
   "private session, workspace, and undo commands are rejected without storage or browser access",
   async () => {
-  const api = createBrowserApi();
-  const before = structuredClone(api.storageData);
-  const browser = browserApiParts(api);
-  const sender = { tab: { id: 3, incognito: true } };
+    const api = createBrowserApi();
+    const before = structuredClone(api.storageData);
+    const browser = browserApiParts(api);
+    const sender = { tab: { id: 3, incognito: true } };
 
-  for (const command of [
-    request("session", ["list"]),
-    request("workspace", ["list"]),
-    request("undo"),
-  ]) {
-    const result = await handleMessage(command, browser, selectors, sender);
-    assert.equal(result.ok, false);
-    assert.match(result.error, /disabled in private browsing/);
-  }
+    for (const command of [
+      request("session", ["list"]),
+      request("workspace", ["list"]),
+      request("undo"),
+    ]) {
+      const result = await handleMessage(command, browser, selectors, sender);
+      assert.equal(result.ok, false);
+      assert.match(result.error, /disabled in private browsing/);
+    }
 
-  assert.deepEqual(api.calls.gets, []);
-  assert.deepEqual(api.calls.sets, []);
-  assert.deepEqual(api.storageData, before);
-});
+    assert.deepEqual(api.calls.gets, []);
+    assert.deepEqual(api.calls.sets, []);
+    assert.equal(api.calls.windowGets, 0);
+    assert.deepEqual(api.storageData, before);
+  },
+);
