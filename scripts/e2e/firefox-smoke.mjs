@@ -210,6 +210,17 @@ try {
   );
 
   const commandInput = await findElement(sessionId, "#fvc-command-panel input");
+
+  async function runCommand(command, expectedOutput) {
+    await sendKeys(sessionId, commandInput, command);
+    await sendKeys(sessionId, commandInput, "\uE007");
+    return waitFor(`command response for ${command}`, async () => {
+      const element = await findElement(sessionId, "#fvc-command-panel .fvc-output");
+      if (!element) return null;
+      const text = await request("GET", `/session/${sessionId}/element/${element}/text`);
+      return text.includes(expectedOutput) ? text : null;
+    });
+  }
   await sendKeys(sessionId, commandInput, ":tabs");
   await sendKeys(sessionId, commandInput, "\uE007");
   const output = await waitFor("background command response", async () => {
@@ -253,6 +264,48 @@ try {
     "prompt output should retain no more than 200 entries",
   );
 
+  await runCommand(
+    ":open http://fixture:4173/second new_tab",
+    "Opened http://fixture:4173/second in new tab",
+  );
+  await runCommand(":count all", "2 tab(s) matched all.");
+  await runCommand(":pin all", "2 of 2 tab(s) updated.");
+  const pinnedTabs = await runCommand(":tabs", "[pinned]");
+  assert.match(pinnedTabs, /Firefox Vim Controls fixture — \/second/);
+  const undonePin = await runCommand(":undo", "Undid pin.");
+  assert.match(undonePin, /Undid pin\./);
+  const restoredTabs = await runCommand(":tabs", "Firefox Vim Controls fixture — \/second");
+  assert.doesNotMatch(
+    restoredTabs,
+    /\[pinned\]/,
+    "undo should restore the actual pinned state of both browser tabs",
+  );
+
+  await runCommand(
+    ":open http://unrelated-fixture:4173/untouched new_tab",
+    "Opened http://unrelated-fixture:4173/untouched in new tab",
+  );
+  await runCommand(
+    ":move domain:fixture, new_window",
+    "Moved 2 tab(s) into new window",
+  );
+  await runCommand(":windows", "Window ");
+  const windowLines = await executeScript(
+    sessionId,
+    "return Array.from(document.querySelectorAll('#fvc-command-panel .fvc-output')).slice(-2).map((line) => line.textContent)",
+  );
+  assert.equal(windowLines.length, 2, "the move should leave two normal browser windows");
+  assert.ok(
+    windowLines.some((line) => line.includes("unrelated-fixture:4173/untouched")),
+    "the unrelated-domain tab should remain in its original window",
+  );
+  assert.ok(
+    windowLines.some((line) => line.includes("fixture:4173/second")),
+    "the selected fixture tabs should be grouped in the new window",
+  );
+  await runCommand(":count all", "3 tab(s) matched all.");
+  await runCommand(":count domain:fixture", "2 tab(s) matched domain:fixture");
+
   await sendKeys(sessionId, commandInput, "\uE00C");
   await waitFor(
     "prompt close after command",
@@ -268,7 +321,7 @@ try {
   );
 
   console.log(
-    "Firefox browser smoke tests passed (activation, editable safety, accessible semantics, focus containment/restoration, output retention, command round-trip, about:blank boundary).",
+    "Firefox browser smoke tests passed (prompt accessibility/focus, output retention, tab creation/pinning/undo, cross-window selection isolation, command round-trip, about:blank boundary).",
   );
 } finally {
   if (sessionId) {
