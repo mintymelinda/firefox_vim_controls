@@ -3,7 +3,9 @@
 
   function isEditableTarget(target) {
     if (!target || typeof target !== "object") return false;
-    const element = target.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='textbox']");
+    const element = target.closest?.(
+      "input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='textbox']",
+    );
     return Boolean(element);
   }
 
