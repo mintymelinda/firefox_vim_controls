@@ -46,10 +46,10 @@ test("captures normal-window metadata without retaining browser identifiers", ()
       ],
     },
   ]);
-  assert.deepEqual(captured.windows[0].tabs.map((tab) => tab.url), [
-    "https://mozilla.org/",
-    "https://example.com/",
-  ]);
+  assert.deepEqual(
+    captured.windows[0].tabs.map((tab) => tab.url),
+    ["https://mozilla.org/", "https://example.com/"],
+  );
   assert.equal(Object.hasOwn(captured.windows[0], "id"), false);
   assert.equal(Object.hasOwn(captured.windows[0].tabs[0], "id"), false);
 });
@@ -84,11 +84,14 @@ test("deletes and renames records with collision and missing-name checks", () =>
 
 test("lists normalized records with tab and window counts", () => {
   const collection = state.saveRecord({}, "work", snapshot(), 10);
-  assert.deepEqual(state.listRecords(collection, 10).map(({ name, windows, tabs }) => ({
-    name,
-    windows,
-    tabs,
-  })), [{ name: "work", windows: 1, tabs: 2 }]);
+  assert.deepEqual(
+    state.listRecords(collection, 10).map(({ name, windows, tabs }) => ({
+      name,
+      windows,
+      tabs,
+    })),
+    [{ name: "work", windows: 1, tabs: 2 }],
+  );
 });
 
 test("bounds snapshots by window and tab counts", () => {
