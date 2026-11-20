@@ -10,6 +10,7 @@
       "src/shared/registry.js",
       "src/shared/command-state.js",
       "src/shared/session-state.js",
+      "src/shared/macro-state.js",
       "src/background/background.js"
     ]
   },
