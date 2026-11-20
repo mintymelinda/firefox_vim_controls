@@ -52,10 +52,17 @@ jobs:
           fi
           echo "Signing Firefox Vim Controls ${VERSION}"
 
-      - name: Run project validation and create unsigned package
-        run: |
-          npm ci
-          npm run check
+      - name: Build the project's Docker validation and Firefox test images
+        run: docker compose build app browser-tests browser-tests-115 fixture firefox firefox-115
+
+      - name: Run formatting, lint, unit tests, build, and package checks
+        run: docker compose run --rm app npm run check
+
+      - name: Run real Firefox Stable browser smoke tests
+        run: docker compose run --rm browser-tests npm run test:browser
+
+      - name: Run Firefox 115 ESR browser smoke tests
+        run: docker compose run --rm browser-tests-115 npm run test:browser
 
       - name: Verify Mozilla signing credentials are configured
         env:
