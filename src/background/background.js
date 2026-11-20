@@ -81,7 +81,9 @@
     const windows = await getNormalWindowSnapshot(browserApi);
     const currentWindows = new Map(windows.map((window) => [window.id, window]));
     const currentTabs = new Map(
-      windows.flatMap((window) => window.tabs.map((tab) => [tab.id, tab])),
+      windows.flatMap((window) =>
+        window.tabs.map((tab) => [tab.id, { ...tab, windowId: window.id }]),
+      ),
     );
     const groups = new Map();
     for (const position of [...positions].sort((left, right) => {
