@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const macros = require("../src/shared/macro-state.js");
 
-const allowed = ["tabs", "count", "move", "pin", "unpin", "mute", "unmute", "sort"];
+const allowed = ["tabs", "count", "move", "pin", "unpin", "mute", "unmute", "sort", "close"];
 
 test("normalizes safe macro names and parsed command objects", () => {
   assert.equal(macros.normalizeName("Work_Flow"), "work_flow");
