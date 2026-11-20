@@ -11,7 +11,6 @@
   let output = null;
   let lastCompletion = "";
 
-  const implemented = new Set(["help", "version", "clear"]);
   const commandNames = globalThis.VimCommandRegistry.names();
 
   function appendOutput(message, kind = "info") {
@@ -90,12 +89,17 @@
       if (history.length > HISTORY_LIMIT) history.shift();
       historyIndex = history.length;
       for (const command of parsed.commands) {
-        if (!implemented.has(command.name)) {
+        const definition = globalThis.VimCommandRegistry.get(command.name);
+        if (!definition || definition.status !== "implemented") {
           appendOutput(`Unknown or not-yet-implemented command: ${command.name}. Try :help.`, "error");
           continue;
         }
         if (command.name === "help") {
-          appendOutput("Implemented: :help, :version, :clear. Tab/window commands are planned for Phase 2–3.");
+          const allCommands = globalThis.VimCommandRegistry.all();
+          const available = allCommands.filter((item) => item.status === "implemented").map((item) => `:${item.name}`);
+          const planned = allCommands.filter((item) => item.status === "planned").map((item) => `:${item.name}`);
+          appendOutput(`Available: ${available.join(", ")}`);
+          appendOutput(`Planned: ${planned.join(", ")}`);
           appendOutput("Examples: :move twitch, new_window · :close duplicates · :sort domain");
         } else if (command.name === "version") {
           appendOutput("Firefox Vim Controls v0.1.0");
