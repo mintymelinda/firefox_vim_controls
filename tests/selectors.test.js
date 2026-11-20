@@ -129,3 +129,30 @@ test("selects blank and discarded tabs without treating ordinary pages as empty"
     [4],
   );
 });
+
+test("selects one-based numeric and tab:N positions in the focused normal window", () => {
+  const numericTabs = [
+    { id: 3, windowId: 10, index: 0 },
+    { id: 99, windowId: 10, index: 1 },
+    { id: 5, windowId: 10, index: 2 },
+    { id: 4, windowId: 11, index: 1 },
+  ];
+  assert.deepEqual(
+    selectTabs(numericTabs, "2", { currentWindowId: 10 }).map((tab) => tab.id),
+    [99],
+  );
+  assert.deepEqual(
+    selectTabs(numericTabs, "tab:3", { currentWindowId: 10 }).map((tab) => tab.id),
+    [5],
+  );
+  assert.deepEqual(selectTabs(numericTabs, "4", { currentWindowId: 10 }), []);
+  assert.throws(
+    () => selectTabs(numericTabs, "tab:abc", { currentWindowId: 10 }),
+    /positive integer/,
+  );
+  assert.throws(
+    () => selectTabs(numericTabs, "0", { currentWindowId: 10 }),
+    /one-based positive integers/,
+  );
+  assert.throws(() => selectTabs(numericTabs, "2"), /focused normal browser window/);
+});

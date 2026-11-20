@@ -79,6 +79,22 @@
         value === "left" ? tab.index < activeTab.index : tab.index > activeTab.index,
       );
     }
+    const numericSelector = /^(?:tab:)?(\d+)$/.exec(value);
+    if (value.startsWith("tab:") && !numericSelector) {
+      throw new Error("tab:N selectors require a positive integer.");
+    }
+    if (numericSelector) {
+      const oneBasedIndex = Number(numericSelector[1]);
+      if (!Number.isSafeInteger(oneBasedIndex) || oneBasedIndex < 1) {
+        throw new Error("Numeric tab selectors are one-based positive integers.");
+      }
+      if (options.currentWindowId === undefined) {
+        throw new Error("Numeric tab selectors require a focused normal browser window.");
+      }
+      return tabs.filter(
+        (tab) => tab.windowId === options.currentWindowId && tab.index === oneBasedIndex - 1,
+      );
+    }
     if (value === "empty") {
       return tabs.filter((tab) =>
         ["", "about:blank", "about:newtab"].includes(String(tab.url || "").toLowerCase()),
