@@ -4,7 +4,8 @@ const registry = require("../src/shared/registry.js");
 
 test("registry distinguishes implemented and planned commands", () => {
   assert.equal(registry.get("help").status, "implemented");
-  assert.equal(registry.get("close").status, "planned");
+  assert.equal(registry.get("close").status, "implemented");
+  assert.equal(registry.get("windows").status, "planned");
 });
 
 test("registry lookup is case-insensitive and returns a copy", () => {
