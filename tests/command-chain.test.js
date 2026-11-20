@@ -51,12 +51,14 @@ test("propagates executor exceptions without running later commands", async () =
   assert.deepEqual(order, ["tabs"]);
 });
 
-
 test("rejects command chains that exceed the execution bound", async () => {
   await assert.rejects(
-    chain.executeChain(Array.from({ length: 51 }, () => ({ name: "tabs" })), async () => ({
-      ok: true,
-    })),
+    chain.executeChain(
+      Array.from({ length: 51 }, () => ({ name: "tabs" })),
+      async () => ({
+        ok: true,
+      }),
+    ),
     /cannot contain more than 50/,
   );
 });
