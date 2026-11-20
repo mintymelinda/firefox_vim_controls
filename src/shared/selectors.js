@@ -80,6 +80,9 @@
       );
     }
     const numericSelector = /^(?:tab:)?(\d+)$/.exec(value);
+    if (value.startsWith("tab:") && !numericSelector) {
+      throw new Error("tab:N selectors require a positive integer.");
+    }
     if (numericSelector) {
       const oneBasedIndex = Number(numericSelector[1]);
       if (!Number.isSafeInteger(oneBasedIndex) || oneBasedIndex < 1) {
