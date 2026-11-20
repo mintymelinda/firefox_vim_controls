@@ -29,19 +29,15 @@
     "domain:",
     "window:",
   ];
-  const DESTINATION_COMPLETIONS = [
-    "new_tab",
-    "new_window",
-    "current_window",
-    "--confirm",
-  ];
+  const DESTINATION_COMPLETIONS = ["new_tab", "new_window", "current_window", "--confirm"];
 
   function canPersistState(privateContext, storage) {
     return !privateContext && Boolean(storage);
   }
 
   function normalizeHistory(value, limit = DEFAULT_PREFERENCES.historyLimit) {
-    const maximum = Number.isInteger(limit) && limit >= 1 ? limit : DEFAULT_PREFERENCES.historyLimit;
+    const maximum =
+      Number.isInteger(limit) && limit >= 1 ? limit : DEFAULT_PREFERENCES.historyLimit;
     if (!Array.isArray(value)) return [];
     return value
       .filter((entry) => typeof entry === "string" && entry.length > 0 && entry.length <= 2000)
@@ -96,7 +92,9 @@
   function createAlias(name, command, commandNames = []) {
     const aliasName = String(name || "").toLowerCase();
     if (!isValidAliasName(aliasName, commandNames)) {
-      throw new Error("Alias names must be new command-like names and cannot shadow built-in commands.");
+      throw new Error(
+        "Alias names must be new command-like names and cannot shadow built-in commands.",
+      );
     }
     if (
       !command ||
@@ -111,9 +109,7 @@
       command: {
         name: command.name,
         args: command.args.filter((arg) => typeof arg === "string").slice(0, 32),
-        destination: command.destination
-          .filter((item) => typeof item === "string")
-          .slice(0, 32),
+        destination: command.destination.filter((item) => typeof item === "string").slice(0, 32),
       },
     };
   }
@@ -176,7 +172,9 @@
   }
 
   function completionCandidates(value, commandNames = [], aliases = {}) {
-    const source = String(value || "").trimStart().replace(/^:/, "");
+    const source = String(value || "")
+      .trimStart()
+      .replace(/^:/, "");
     const hasTrailingSpace = /\s$/.test(source);
     const parts = source.trim().split(/\s+/).filter(Boolean);
     const prefix = hasTrailingSpace ? "" : parts.at(-1) || "";
@@ -192,11 +190,7 @@
     } else if (["open", "search"].includes(parts[0])) {
       candidates = ["twitch", "youtube", "github", ...DESTINATION_COMPLETIONS];
     } else {
-      candidates = [
-        ...SELECTOR_COMPLETIONS,
-        ...DESTINATION_COMPLETIONS,
-        ...Object.keys(aliases),
-      ];
+      candidates = [...SELECTOR_COMPLETIONS, ...DESTINATION_COMPLETIONS, ...Object.keys(aliases)];
     }
     return [...new Set(candidates)].filter((candidate) =>
       candidate.toLowerCase().startsWith(prefix.toLowerCase()),
