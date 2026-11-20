@@ -24,6 +24,12 @@
     "sort",
     "reverse",
     "shuffle",
+    "open",
+    "search",
+    "back",
+    "forward",
+    "refresh",
+    "home",
   ]);
 
   function validateCommandRequest(message) {
@@ -475,9 +481,152 @@
     return { ok: false, error: `Command is not available: ${name}` };
   }
 
+  const URL_ALIASES = {
+    twitch: "https://www.twitch.tv/",
+    youtube: "https://www.youtube.com/",
+    github: "https://github.com/",
+  };
+
+  function resolveNavigationUrl(value) {
+    const input = String(value || "").trim();
+    if (!input) throw new Error("A URL or shortcut is required.");
+    if (Object.hasOwn(URL_ALIASES, input.toLowerCase())) {
+      return URL_ALIASES[input.toLowerCase()];
+    }
+    const candidate = /^[a-z][a-z0-9+.-]*:/i.test(input) ? input : `https://${input}`;
+    let url;
+    try {
+      url = new URL(candidate);
+    } catch {
+      throw new Error("Enter a valid HTTP(S) URL or a supported shortcut.");
+    }
+    if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
+      throw new Error("Only HTTP and HTTPS destinations are allowed.");
+    }
+    if (url.username || url.password) {
+      throw new Error("URLs containing embedded credentials are not allowed.");
+    }
+    return url.href;
+  }
+
+  async function executeOpenCommand(command, focusedWindow, browserApi) {
+    const value = command.args.join(" ").trim();
+    if (!value) {
+      return {
+        ok: false,
+        error:
+          command.name === "search"
+            ? "Search syntax: :search search terms."
+            : "Open syntax: :open URL or shortcut.",
+      };
+    }
+    let url;
+    if (command.name === "search") {
+      const searchUrl = new URL("https://duckduckgo.com/");
+      searchUrl.searchParams.set("q", value);
+      url = searchUrl.href;
+    } else {
+      url = resolveNavigationUrl(value);
+    }
+    const destination = command.destination.join(" ").trim().toLowerCase();
+    if (destination && !["new_tab", "new_window"].includes(destination)) {
+      return { ok: false, error: "Open destination must be new_tab or new_window." };
+    }
+    if (destination === "new_window" || !focusedWindow) {
+      const created = await browserApi.windows.create({ url });
+      return { ok: true, output: [`Opened ${url} in new window #${created.id}.`] };
+    }
+    if (destination === "new_tab") {
+      const created = await browserApi.tabs.create({
+        windowId: focusedWindow.id,
+        url,
+        active: true,
+      });
+      return { ok: true, output: [`Opened ${url} in new tab #${created.id}.`] };
+    }
+    const active = focusedWindow.tabs.find((tab) => tab.active);
+    if (active) {
+      await browserApi.tabs.update(active.id, { url });
+      return { ok: true, output: [`Navigating tab #${active.id} to ${url}.`] };
+    }
+    const created = await browserApi.tabs.create({
+      windowId: focusedWindow.id,
+      url,
+      active: true,
+    });
+    return { ok: true, output: [`Opened ${url} in new tab #${created.id}.`] };
+  }
+
+  async function executeNavigationCommand(
+    command,
+    tabs,
+    windows,
+    focusedWindow,
+    browserApi,
+    selectors,
+  ) {
+    const confirmed = command.args.includes("--confirm");
+    const args = command.args.filter((arg) => arg !== "--confirm");
+    if (command.name === "home" && args.length) {
+      return { ok: false, error: "Home syntax: :home." };
+    }
+    const selector = args.join(" ").trim() || "active";
+    const selected = selectors.selectTabs(tabs, selector, {
+      currentWindowId: focusedWindow?.id,
+      windows,
+    });
+    if (!selected.length) return { ok: true, output: [`No tabs matched ${selector}.`] };
+    if (command.name === "refresh" && selected.length > 1 && !confirmed) {
+      return { ok: true, output: previewLines("refresh", selector, selected, windows) };
+    }
+    const operations = {
+      back: (id) => browserApi.tabs.goBack(id),
+      forward: (id) => browserApi.tabs.goForward(id),
+      refresh: (id) => browserApi.tabs.reload(id),
+      home: (id) => browserApi.tabs.update(id, { url: "about:home" }),
+    };
+    const operation = operations[command.name];
+    if (!operation) {
+      return { ok: false, error: `Navigation command is unavailable: ${command.name}` };
+    }
+    if (
+      (command.name === "back" && typeof browserApi.tabs.goBack !== "function") ||
+      (command.name === "forward" && typeof browserApi.tabs.goForward !== "function")
+    ) {
+      return {
+        ok: false,
+        error: "This Firefox version does not expose the requested history navigation API.",
+      };
+    }
+    const result = await performPerTab(selected, operation);
+    const failures = result.output.slice(1);
+    const verb = {
+      back: "Navigated back",
+      forward: "Navigated forward",
+      refresh: "Refreshed",
+      home: "Sent to the home page",
+    }[command.name];
+    return {
+      ok: result.ok,
+      output: [
+        `${verb} ${selected.length - failures.length} of ${selected.length} tab(s).`,
+        ...failures,
+      ],
+    };
+  }
+
   async function executeCommand(command, browserApi, selectors) {
     const windows = await getNormalWindowSnapshot(browserApi);
     const focusedWindow = windows.find((window) => window.focused);
+    if (command.name === "open" || command.name === "search") {
+      return executeOpenCommand(command, focusedWindow, browserApi);
+    }
+    if (["back", "forward", "refresh", "home"].includes(command.name)) {
+      const tabs = windows.flatMap((window) =>
+        window.tabs.map((tab) => ({ ...tab, windowId: window.id })),
+      );
+      return executeNavigationCommand(command, tabs, windows, focusedWindow, browserApi, selectors);
+    }
     if (
       ["windows", "window", "new_window", "fullscreen", "minimize", "maximize", "merge"].includes(
         command.name,
@@ -591,6 +740,9 @@
   const api = {
     commandOptions,
     executeCommand,
+    executeNavigationCommand,
+    executeOpenCommand,
+    resolveNavigationUrl,
     executeMutation,
     executeWindowCommand,
     moveTabsToWindow,
