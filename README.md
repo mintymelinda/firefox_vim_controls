@@ -12,11 +12,13 @@ docker compose run --rm app npm run check
 docker compose run --rm app npm run format
 ```
 
-The image pins Node and Biome versions. `npm ci` uses the committed lockfile. Do not install project dependencies on the host.
+The image pins Node and Biome versions. `npm ci` uses the committed lockfile. `npm run check` includes the unpacked build and deterministic ZIP package. The distributable is written to `artifacts/`. Do not install project dependencies on the host.
 
 ## Current status
 
-Phases 1–5 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, and preferences. Phase 6 adds local sessions and named workspaces.
+Phases 1–7 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, and undo.
+
+See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md).
 
 ## Keyboard behaviour
 
