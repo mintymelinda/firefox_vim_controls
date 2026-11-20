@@ -39,23 +39,42 @@ function makeWindows() {
 
 function createBrowserApi() {
   const windows = makeWindows();
-  const calls = { removed: [], updated: [], reloaded: [], discarded: [], moved: [] };
+  const calls = {
+    removed: [],
+    updated: [],
+    reloaded: [],
+    discarded: [],
+    moved: [],
+    windowUpdates: [],
+    windowCreates: [],
+  };
+  let nextWindowId = 20;
   return {
     calls,
     windows: {
       getAll: async () => windows,
-      create: async ({ tabId }) => {
-        const tab = windows.flatMap((window) => window.tabs).find((item) => item.id === tabId);
+      update: async (id, properties) => {
+        calls.windowUpdates.push({ id, properties });
+        return { id, ...properties };
+      },
+      create: async ({ tabId } = {}) => {
+        const id = nextWindowId++;
+        const tab = tabId
+          ? windows.flatMap((window) => window.tabs).find((item) => item.id === tabId)
+          : undefined;
         for (const window of windows) {
           window.tabs = window.tabs.filter((item) => item.id !== tabId);
         }
+        const createdTabs = tab ? [tab] : [];
         windows.push({
-          id: 20,
+          id,
           focused: true,
           incognito: false,
-          tabs: [tab],
+          state: "normal",
+          tabs: createdTabs,
         });
-        return { id: 20, tabs: [tab] };
+        calls.windowCreates.push({ id, tabId });
+        return { id, tabs: createdTabs };
       },
     },
     tabs: {
@@ -214,4 +233,75 @@ test("validates move destinations and preserves read-only inspection commands", 
   const api = createBrowserApi();
   const result = await handleMessage(request("count", ["youtube"]), api, selectors);
   assert.deepEqual(result.output, ["2 tab(s) matched youtube."]);
+});
+
+
+test("lists, focuses, creates, and changes normal window states", async () => {
+  const api = createBrowserApi();
+  const windows = await handleMessage(request("windows"), api, selectors);
+  assert.equal(windows.output.length, 2);
+  assert.match(windows.output[0], /Window 1/);
+
+  const focus = await handleMessage(request("window", ["2"]), api, selectors);
+  assert.match(focus.output[0], /Focused window 2/);
+  assert.deepEqual(api.calls.windowUpdates[0], { id: 11, properties: { focused: true } });
+
+  const created = await handleMessage(request("new_window"), api, selectors);
+  assert.match(created.output[0], /Created normal window/);
+
+  await handleMessage(request("maximize"), api, selectors);
+  assert.deepEqual(api.calls.windowUpdates[1], { id: 10, properties: { state: "maximized" } });
+});
+
+test("merges selected windows and splits matching tabs into a new window", async () => {
+  const api = createBrowserApi();
+  const merged = await handleMessage(request("merge", ["2"]), api, selectors);
+  assert.match(merged.output[0], /Moved 2 tab/);
+  assert.deepEqual(api.calls.moved[0], {
+    ids: [3, 4],
+    properties: { windowId: 10, index: -1 },
+  });
+
+  const split = await handleMessage(request("split", ["twitch"]), api, selectors);
+  assert.match(split.output[0], /new window/);
+  assert.equal(api.calls.windowCreates.length, 1);
+});
+
+test("sorts, reverses, and shuffles within pinned and unpinned partitions", async () => {
+  const api = createBrowserApi();
+  const sorted = await handleMessage(request("sort", ["title"]), api, selectors);
+  assert.match(sorted.output[0], /Sorted by title/);
+  assert.ok(api.calls.moved.length > 0);
+
+  const reversed = await handleMessage(request("reverse"), api, selectors);
+  assert.match(reversed.output[0], /reverse selection/);
+
+  const shuffled = await handleMessage(request("shuffle"), api, selectors);
+  assert.match(shuffled.output[0], /shuffle selection/);
+});
+
+
+test("sorting keeps pinned and unpinned tabs in their own positions", async () => {
+  const api = createBrowserApi();
+  const window = {
+    id: 30,
+    focused: true,
+    incognito: false,
+    tabs: [
+      { id: 1, title: "Z pinned", pinned: true, index: 0 },
+      { id: 3, title: "A pinned", pinned: true, index: 1 },
+      { id: 2, title: "Z regular", pinned: false, index: 2 },
+      { id: 4, title: "A regular", pinned: false, index: 3 },
+    ],
+  };
+  api.windows.getAll = async () => [window];
+  const result = await handleMessage(request("sort", ["title"]), api, selectors);
+  assert.match(result.output[0], /Sorted by title/);
+  assert.deepEqual(
+    api.calls.moved.map((call) => ({ id: call.ids, index: call.properties.index })),
+    [
+      { id: 3, index: 0 },
+      { id: 4, index: 2 },
+    ],
+  );
 });

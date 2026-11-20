@@ -13,6 +13,17 @@
     "pin",
     "unpin",
     "discard",
+    "windows",
+    "window",
+    "new_window",
+    "fullscreen",
+    "minimize",
+    "maximize",
+    "merge",
+    "split",
+    "sort",
+    "reverse",
+    "shuffle",
   ]);
 
   function validateCommandRequest(message) {
@@ -68,7 +79,10 @@
         id: window.id,
         index: index + 1,
         focused: Boolean(window.focused),
-        tabs: (window.tabs || []).filter((tab) => !tab.incognito),
+        state: window.state || "normal",
+        tabs: (window.tabs || [])
+          .filter((tab) => !tab.incognito)
+          .sort((left, right) => (left.index ?? 0) - (right.index ?? 0)),
       }));
   }
 
@@ -149,6 +163,183 @@
     throw new Error("Move destination must be new_window, current_window, or window 2.");
   }
 
+
+  function windowSummary(window) {
+    const active = window.tabs.find((tab) => tab.active);
+    const label = active?.title || active?.url || "No active tab";
+    const state = window.focused ? "focused" : window.state;
+    return `Window ${window.index} (#${window.id}) — ${window.tabs.length} tab(s), ${state}: ${String(label).replace(/\s+/g, " ").trim()}`;
+  }
+
+  function resolveWindowSelection(value, windows, focusedWindow) {
+    const selector = String(value || "").trim().toLowerCase();
+    if (!selector) {
+      if (!focusedWindow) throw new Error("There is no focused normal browser window.");
+      return focusedWindow;
+    }
+    if (selector === "next" || selector === "previous") {
+      if (!focusedWindow) throw new Error("There is no focused normal browser window.");
+      const offset = selector === "next" ? 1 : -1;
+      const index = (focusedWindow.index - 1 + offset + windows.length) % windows.length;
+      return windows[index];
+    }
+    const index = Number(selector);
+    if (!Number.isSafeInteger(index) || index < 1) {
+      throw new Error("Use :window 2, :window next, or :window previous.");
+    }
+    const window = windows.find((item) => item.index === index);
+    if (!window) throw new Error(`No normal browser window at index ${index}`);
+    return window;
+  }
+
+  function compareTabs(left, right, key, selectors) {
+    if (key === "recent") {
+      return (right.lastAccessed || 0) - (left.lastAccessed || 0);
+    }
+    if (key === "domain") {
+      return selectors.hostnameOf(left).localeCompare(selectors.hostnameOf(right));
+    }
+    const leftValue = key === "title" ? left.title || "" : left.url || "";
+    const rightValue = key === "title" ? right.title || "" : right.url || "";
+    return String(leftValue).localeCompare(String(rightValue), undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+  }
+
+  function orderedSelection(tabs, mode, key, selectors, random = Math.random) {
+    const selected = [...tabs];
+    if (mode === "sort") {
+      return selected
+        .map((tab, index) => ({ tab, index }))
+        .sort((left, right) => {
+          const comparison = compareTabs(left.tab, right.tab, key, selectors);
+          return comparison || left.index - right.index;
+        })
+        .map(({ tab }) => tab);
+    }
+    if (mode === "reverse") return selected.reverse();
+    for (let index = selected.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(random() * (index + 1));
+      [selected[index], selected[target]] = [selected[target], selected[index]];
+    }
+    return selected;
+  }
+
+  async function reorderWindow(window, selected, mode, key, browserApi, selectors, random) {
+    const selectedIds = new Set(selected.map((tab) => tab.id));
+    const current = [...window.tabs];
+    let changed = 0;
+    for (const pinned of [true, false]) {
+      const slots = current
+        .map((tab, index) => ({ tab, index }))
+        .filter(({ tab }) => selectedIds.has(tab.id) && Boolean(tab.pinned) === pinned)
+        .map(({ index }) => index);
+      if (slots.length < 2) continue;
+      const group = slots.map((index) => current[index]);
+      const ordered = orderedSelection(group, mode, key, selectors, random);
+      for (let offset = 0; offset < slots.length; offset += 1) {
+        const targetIndex = slots[offset];
+        const desired = ordered[offset];
+        const currentIndex = current.findIndex((tab) => tab.id === desired.id);
+        if (currentIndex === targetIndex) continue;
+        await browserApi.tabs.move(desired.id, {
+          windowId: window.id,
+          index: targetIndex,
+        });
+        const [moved] = current.splice(currentIndex, 1);
+        current.splice(targetIndex, 0, moved);
+        changed += 1;
+      }
+    }
+    return changed;
+  }
+
+  async function moveTabsToWindow(tabs, targetWindowId, browserApi) {
+    const groups = new Map();
+    for (const tab of tabs) {
+      if (tab.windowId === targetWindowId) continue;
+      const group = groups.get(tab.windowId) || [];
+      group.push(tab);
+      groups.set(tab.windowId, group);
+    }
+    let moved = 0;
+    for (const group of groups.values()) {
+      await browserApi.tabs.move(
+        group.map((tab) => tab.id),
+        { windowId: targetWindowId, index: -1 },
+      );
+      moved += group.length;
+    }
+    return moved;
+  }
+
+  async function executeWindowCommand(command, windows, focusedWindow, browserApi) {
+    const name = command.name;
+    if (name === "windows") {
+      return {
+        ok: true,
+        output: windows.length ? windows.map(windowSummary) : ["No normal browser windows."],
+      };
+    }
+    if (name === "new_window") {
+      const created = await browserApi.windows.create({});
+      return { ok: true, output: [`Created normal window #${created.id}.`] };
+    }
+    if (name === "window") {
+      const target = resolveWindowSelection(command.args[0], windows, focusedWindow);
+      await browserApi.windows.update(target.id, { focused: true });
+      return { ok: true, output: [`Focused window ${target.index} (#${target.id}).`] };
+    }
+    if (["fullscreen", "minimize", "maximize"].includes(name)) {
+      if (!focusedWindow) {
+        return { ok: false, error: "There is no focused normal browser window." };
+      }
+      const state = {
+        fullscreen: "fullscreen",
+        minimize: "minimized",
+        maximize: "maximized",
+      }[name];
+      await browserApi.windows.update(focusedWindow.id, { state });
+      return { ok: true, output: [`Window ${focusedWindow.index} is now ${state}.`] };
+    }
+    if (name === "merge") {
+      if (!focusedWindow) {
+        return { ok: false, error: "There is no focused normal browser window." };
+      }
+      const target = focusedWindow;
+      const sources = command.args.length
+        ? [resolveWindowSelection(command.args[0], windows, focusedWindow)].filter(
+            (window) => window.id !== target.id,
+          )
+        : windows.filter((window) => window.id !== target.id);
+      if (!sources.length) {
+        return { ok: true, output: ["No other normal windows to merge."] };
+      }
+      let moved = 0;
+      const failures = [];
+      for (const source of sources) {
+        const ids = source.tabs.map((tab) => tab.id);
+        if (!ids.length) continue;
+        try {
+          await browserApi.tabs.move(ids, { windowId: target.id, index: -1 });
+          moved += ids.length;
+        } catch (error) {
+          failures.push(
+            `Window ${source.index}: ${error instanceof Error ? error.message : "move failed"}`,
+          );
+        }
+      }
+      const output = [`Moved ${moved} tab(s) into window ${target.index}.`, ...failures];
+      return {
+        ok: failures.length === 0,
+        output,
+        ...(failures.length ? { error: "Some windows could not be merged." } : {}),
+      };
+    }
+    return null;
+  }
+
   async function executeMutation(
     command,
     selected,
@@ -157,6 +348,7 @@
     browserApi,
     selector,
     confirmed,
+    selectors,
   ) {
     const name = command.name;
     if (name === "close") {
@@ -200,6 +392,36 @@
       return result;
     }
 
+    if (name === "split") {
+      if (!selected.length) return { ok: true, output: ["No tabs matched."] };
+      return executeMutation(
+        { ...command, name: "move", destination: ["new_window"] },
+        selected,
+        windows,
+        focusedWindow,
+        browserApi,
+        selector,
+        true,
+        selectors,
+      );
+    }
+
+    if (name === "sort" || name === "reverse" || name === "shuffle") {
+      const key = name === "sort" ? command.args[0] : null;
+      if (name === "sort" && !["domain", "title", "url", "recent"].includes(key)) {
+        return { ok: false, error: "Sort key must be domain, title, url, or recent." };
+      }
+      const affected = windows.filter((window) =>
+        selected.some((tab) => tab.windowId === window.id),
+      );
+      let changed = 0;
+      for (const window of affected) {
+        const inWindow = selected.filter((tab) => tab.windowId === window.id);
+        changed += await reorderWindow(window, inWindow, name, key, browserApi, selectors);
+      }
+      return { ok: true, output: [`${name === "sort" ? `Sorted by ${key}` : name} selection; ${changed} tab move(s) applied.`] };
+    }
+
     if (name === "move") {
       if (!selected.length) return { ok: true, output: ["No tabs matched."] };
       const target = resolveMoveTarget(command.destination, windows, focusedWindow);
@@ -208,10 +430,7 @@
         const created = await browserApi.windows.create({ tabId: first.id });
         if (remaining.length) {
           try {
-            await browserApi.tabs.move(
-              remaining.map((tab) => tab.id),
-              { windowId: created.id, index: -1 },
-            );
+            await moveTabsToWindow(remaining, created.id, browserApi);
           } catch (error) {
             const message = error instanceof Error ? error.message : "move failed";
             return {
@@ -229,10 +448,7 @@
       if (!moving.length) {
         return { ok: true, output: ["All selected tabs are already in the destination window."] };
       }
-      await browserApi.tabs.move(
-        moving.map((tab) => tab.id),
-        { windowId: target.window.id, index: -1 },
-      );
+      await moveTabsToWindow(moving, target.window.id, browserApi);
       return {
         ok: true,
         output: [`Moved ${moving.length} tab(s) into window ${target.window.index}.`],
@@ -255,11 +471,19 @@
 
   async function executeCommand(command, browserApi, selectors) {
     const windows = await getNormalWindowSnapshot(browserApi);
+    const focusedWindow = windows.find((window) => window.focused);
+    if (["windows", "window", "new_window", "fullscreen", "minimize", "maximize", "merge"].includes(command.name)) {
+      return executeWindowCommand(command, windows, focusedWindow, browserApi);
+    }
     const tabs = windows.flatMap((window) =>
       window.tabs.map((tab) => ({ ...tab, windowId: window.id })),
     );
-    const focusedWindow = windows.find((window) => window.focused);
-    const { confirmed, selector } = commandOptions(command);
+    const { confirmed, selector: defaultSelector } = commandOptions(command);
+    const selector = command.name === "sort"
+      ? (command.args.slice(1).join(" ") || "all")
+      : command.name === "split"
+        ? (command.args.join(" ") || "all")
+        : defaultSelector;
 
     if (command.name === "current") {
       const current = focusedWindow?.tabs.find((tab) => tab.active);
@@ -267,6 +491,9 @@
       return { ok: true, output: [tabSummary(current, focusedWindow.index)] };
     }
 
+    if (command.name === "sort" && !["domain", "title", "url", "recent"].includes(command.args[0])) {
+      return { ok: false, error: "Sort syntax: :sort domain|title|url|recent [selector]." };
+    }
     if (command.name === "move" && !command.destination.length) {
       return {
         ok: false,
@@ -318,6 +545,7 @@
       browserApi,
       selector,
       confirmed,
+      selectors,
     );
   }
 
@@ -350,10 +578,16 @@
     commandOptions,
     executeCommand,
     executeMutation,
+    executeWindowCommand,
+    moveTabsToWindow,
     getNormalWindowSnapshot,
     handleMessage,
+    orderedSelection,
     previewLines,
     removableTabs,
+    reorderWindow,
+    resolveWindowSelection,
+    windowSummary,
     resolveMoveTarget,
     validateCommandRequest,
   };
