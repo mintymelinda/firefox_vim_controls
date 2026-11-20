@@ -125,3 +125,11 @@ test("completes command names, aliases, selectors, destinations, and preference 
     state.completionCandidates(":set search_engine g", commandNames, aliases).includes("google"),
   );
 });
+
+
+test("never persists command state from private browsing contexts", () => {
+  const storage = { get: async () => ({}), set: async () => {} };
+  assert.equal(state.canPersistState(true, storage), false);
+  assert.equal(state.canPersistState(false, storage), true);
+  assert.equal(state.canPersistState(false, null), false);
+});
