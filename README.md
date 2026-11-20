@@ -16,9 +16,9 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. `n
 
 ## Current status
 
-Phases 1–13 are implemented on `main`. This includes command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, browser utility commands, relative cleanup selectors, numeric tab targeting, and real-Firefox browser regression coverage.
+Phases 1–14 are implemented on `main`. This includes command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, browser utility commands, relative cleanup selectors, numeric tab targeting, and real-Firefox browser regression coverage.
 
-Phase 12 added the real-Firefox smoke harness (PR [#28](https://github.com/mintymelinda/firefox_vim_controls/pull/28)). Phase 13 added the pinned Firefox 115 ESR target and browser-level prompt accessibility/focus/output assertions (PR [#30](https://github.com/mintymelinda/firefox_vim_controls/pull/30)). Both browser targets passed CI run [#153](https://github.com/mintymelinda/firefox_vim_controls/actions/runs/44816732952): Firefox 115.45.0 ESR and Firefox 159.0.1 Stable, each with geckodriver 0.37.1.
+Phase 12 added the real-Firefox smoke harness (PR [#28](https://github.com/mintymelinda/firefox_vim_controls/pull/28)). Phase 13 added the pinned Firefox 115 ESR target and browser-level prompt accessibility/focus/output assertions (PR [#30](https://github.com/mintymelinda/firefox_vim_controls/pull/30)). Phase 15 is in progress in [PR #32](https://github.com/mintymelinda/firefox_vim_controls/pull/32), adding representative tab/pin/undo and cross-window browser tests plus private-context storage-isolation tests. Both browser targets passed CI run [#153](https://github.com/mintymelinda/firefox_vim_controls/actions/runs/44816732952): Firefox 115.45.0 ESR and Firefox 159.0.1 Stable, each with geckodriver 0.37.1.
 
 See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md). Run the same real-browser smoke suite against both targets with:
 
@@ -27,7 +27,7 @@ docker compose run --rm browser-tests npm run test:browser
 docker compose run --rm browser-tests-115 npm run test:browser
 ```
 
-The browser suite is focused regression coverage, not full command-catalogue or release certification. Privileged Firefox pages, broader command workflows, private-window release behavior, and actual screen-reader announcements remain manual release checks.
+The browser suite is representative regression coverage, not full command-catalogue or release certification. The Phase 15 browser tests exercise tab creation, pin/undo, and a cross-window move that leaves an unrelated-domain tab untouched. Unit tests exercise the private sender boundary and prove private URLs/titles are excluded from saved snapshots; they do not launch a real private Firefox window. Privileged Firefox pages, the full command catalogue, real private-window release behavior, and actual screen-reader announcements remain manual release checks.
 
 ## Keyboard behaviour
 
