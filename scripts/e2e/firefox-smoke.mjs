@@ -105,19 +105,68 @@ try {
   assert.ok(trigger, "fixture should expose a focusable trigger button");
   await request("POST", `/session/${sessionId}/element/${trigger}/click`);
   await sendKeys(sessionId, trigger, ":");
-  let prompt = await waitFor("prompt activation on an ordinary page", () =>
+  const prompt = await waitFor("prompt activation on an ordinary page", () =>
     findElement(sessionId, "#fvc-command-panel"),
   );
 
   const promptInput = await findElement(sessionId, "#fvc-command-panel input");
-  assert.ok(promptInput, "prompt should create and focus its input");
-  const focused = await request("POST", `/session/${sessionId}/execute/sync`, {
-    script: "return document.activeElement === document.querySelector('#fvc-command-panel input')",
-    args: [],
-  });
-  assert.equal(focused, true, "opening the prompt should move focus into its input");
+  assert.ok(promptInput, "prompt should create its input");
+  assert.equal(
+    await executeScript(
+      sessionId,
+      "return document.activeElement === document.querySelector('#fvc-command-panel input')",
+    ),
+    true,
+    "opening the prompt should move focus into its input",
+  );
 
-  await sendKeys(sessionId, promptInput, "\uE00C");
+  const accessibility = await executeScript(
+    sessionId,
+    `const panel = document.querySelector("#fvc-command-panel");
+     const field = panel?.querySelector("input");
+     const log = panel?.querySelector('[role="log"]');
+     const hint = panel?.querySelector("#fvc-command-hint");
+     return {
+       role: panel?.getAttribute("role"),
+       modal: panel?.getAttribute("aria-modal"),
+       name: panel?.getAttribute("aria-label"),
+       describedBy: panel?.getAttribute("aria-describedby"),
+       hintId: hint?.id,
+       inputName: field?.getAttribute("aria-label"),
+       logRole: log?.getAttribute("role"),
+       live: log?.getAttribute("aria-live"),
+       relevant: log?.getAttribute("aria-relevant"),
+       atomic: log?.getAttribute("aria-atomic"),
+     };`,
+  );
+  assert.deepEqual(
+    accessibility,
+    {
+      role: "dialog",
+      modal: "true",
+      name: "Firefox Vim Controls command prompt",
+      describedBy: "fvc-command-hint",
+      hintId: "fvc-command-hint",
+      inputName: "Command",
+      logRole: "log",
+      live: "polite",
+      relevant: "additions text",
+      atomic: "false",
+    },
+    "prompt should expose its expected accessible dialog, input, hint, and live-log semantics",
+  );
+
+  await executeScript(
+    sessionId,
+    "document.querySelector('#fixture-button').focus(); return document.activeElement.id",
+  );
+  assert.equal(
+    await executeScript(sessionId, "return document.activeElement.id"),
+    "fvc-command-input",
+    "focus leaving the modal prompt should be returned to its input",
+  );
+
+  await sendKeys(sessionId, promptInput, "\\uE00C");
   await waitFor(
     "prompt dismissal with Escape",
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
@@ -138,17 +187,19 @@ try {
     "typing a colon in an editable control must not open the prompt",
   );
 
-  await sendKeys(sessionId, editable, "\uE00C");
+  await sendKeys(sessionId, editable, "\\uE00C");
   await request("POST", `/session/${sessionId}/element/${trigger}/click`);
   await sendKeys(sessionId, trigger, ":");
-  prompt = await waitFor("Escape-then-colon activation", () =>
-    findElement(sessionId, "#fvc-command-panel"),
+  assert.ok(
+    await waitFor("Escape-then-colon activation", () =>
+      findElement(sessionId, "#fvc-command-panel"),
+    ),
+    "prompt should open after leaving editable focus",
   );
-  assert.ok(prompt, "prompt should open after leaving editable focus");
 
   const commandInput = await findElement(sessionId, "#fvc-command-panel input");
   await sendKeys(sessionId, commandInput, ":tabs");
-  await sendKeys(sessionId, commandInput, "\uE007");
+  await sendKeys(sessionId, commandInput, "\\uE007");
   const output = await waitFor("background command response", async () => {
     const element = await findElement(sessionId, "#fvc-command-panel .fvc-output");
     if (!element) return null;
@@ -157,7 +208,20 @@ try {
   });
   assert.match(output, /Firefox Vim Controls fixture/);
 
-  await sendKeys(sessionId, commandInput, "\uE00C");
+  const retainedOutputCount = await executeScript(
+    sessionId,
+    `const log = document.querySelector("#fvc-command-panel .fvc-output");
+     for (let index = 0; index < 205; index += 1) {
+       const line = document.createElement("div");
+       line.textContent = \`synthetic output \${index}\`;
+       log.append(line);
+     }
+     globalThis.VimPromptOutput.trimOutput(log, 200);
+     return log.childElementCount;`,
+  );
+  assert.equal(retainedOutputCount, 200, "prompt output should retain no more than 200 entries");
+
+  await sendKeys(sessionId, commandInput, "\\uE00C");
   await waitFor(
     "prompt close after command",
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
@@ -172,7 +236,7 @@ try {
   );
 
   console.log(
-    "Firefox browser smoke tests passed (activation, editable safety, focus, command round-trip, about:blank boundary).",
+    "Firefox browser smoke tests passed (activation, editable safety, accessible semantics, focus containment/restoration, output retention, command round-trip, about:blank boundary).",
   );
 } finally {
   if (sessionId) {
