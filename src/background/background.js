@@ -103,7 +103,8 @@
         url: firstTab.url,
         focused: false,
       });
-      const restoredTabs = [createdWindow.tabs?.[0]].filter(Boolean);
+      const windowTabs = await browserApi.tabs.query({ windowId: createdWindow.id });
+      const restoredTabs = windowTabs.slice(0, 1);
       if (restoredTabs[0] && firstTab.pinned) {
         await browserApi.tabs.update(restoredTabs[0].id, { pinned: true });
       }
