@@ -1,8 +1,9 @@
 {
   "manifest_version": 2,
-  "name": "Firefox Vim Controls",
+  "default_locale": "en",
+  "name": "__MSG_extensionName__",
   "version": "0.1.0",
-  "description": "Vim-inspired command interface for managing Firefox tabs and windows.",
+  "description": "__MSG_extensionDescription__",
   "permissions": ["tabs", "storage"],
   "background": {
     "scripts": [
