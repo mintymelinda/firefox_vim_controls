@@ -287,6 +287,15 @@
     await stateReady;
     try {
       const parsed = globalThis.VimCommandParser.parseCommandLine(raw);
+      const updatedHistory = globalThis.VimCommandState.appendHistory(
+        history,
+        raw,
+        preferences.historyLimit,
+      );
+      history.splice(0, history.length, ...updatedHistory);
+      historyIndex = history.length;
+      await persistState();
+
       const first = parsed.commands[0];
       if (first.name === "macro" && first.args[0] === "define") {
         if (first.args.length !== 2 || parsed.commands.length < 2 || first.destination.length) {
@@ -316,15 +325,6 @@
         input.value = "";
         return;
       }
-
-      const updatedHistory = globalThis.VimCommandState.appendHistory(
-        history,
-        raw,
-        preferences.historyLimit,
-      );
-      history.splice(0, history.length, ...updatedHistory);
-      historyIndex = history.length;
-      await persistState();
 
       const commands = [];
       for (const parsedCommand of parsed.commands) {
