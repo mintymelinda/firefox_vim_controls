@@ -82,7 +82,7 @@ test("selects tabs currently loading", () => {
     { id: 3, url: "https://youtube.com", status: "loading" },
   ];
   assert.deepEqual(
-    selectors.selectTabs(tabs, "loading").map((tab) => tab.id),
+    selectTabs(tabs, "loading").map((tab) => tab.id),
     [1, 3],
   );
 });
