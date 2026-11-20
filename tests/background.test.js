@@ -381,6 +381,7 @@ test("refresh defaults to the active tab and previews broad refreshes", async ()
   const preview = await handleMessage(request("refresh", ["all"]), api, selectors);
   assert.match(preview.output[0], /Preview: refresh would affect 4 tab/);
   assert.deepEqual(api.calls.reloaded, [1]);
+  api.calls.reloaded.length = 0;
 
   const confirmed = await handleMessage(request("refresh", ["all", "--confirm"]), api, selectors);
   assert.deepEqual(api.calls.reloaded, [1, 2, 3, 4]);
