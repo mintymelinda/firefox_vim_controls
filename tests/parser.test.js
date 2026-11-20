@@ -44,7 +44,6 @@ test("recognizes command names case-insensitively", () => {
   assert.equal(parseCommandLine(":CLOSE Twitch").commands[0].name, "close");
 });
 
-
 test("parses macro definitions as a command followed by a safe command chain", () => {
   const result = parseCommandLine(":macro define stream && :tabs twitch && :count all");
   assert.deepEqual(
