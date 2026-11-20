@@ -349,7 +349,7 @@
         commands.push(...response.commands);
       }
 
-      for (const parsedCommand of commands) {
+      await globalThis.VimCommandChain.execute(commands, async (parsedCommand) => {
         const command = globalThis.VimCommandState.expandAlias(parsedCommand, aliases);
         const definition = globalThis.VimCommandRegistry.get(command.name);
         if (!definition || definition.status !== "implemented") {
@@ -361,11 +361,11 @@
             ? ` Did you mean ${suggestions.map((name) => `:${name}`).join(", ")}?`
             : " Try :help.";
           appendOutput(`Unknown or not-yet-implemented command: ${command.name}.${hint}`, "error");
-          break;
+          return { ok: false };
         }
         const localResult = await handleLocalCommand(command);
-        if (localResult === "error") break;
-        if (localResult === true) continue;
+        if (localResult === "error") return { ok: false };
+        if (localResult === true) return { ok: true };
         if (command.name === "help") {
           const allCommands = globalThis.VimCommandRegistry.all();
           const available = allCommands
@@ -379,31 +379,36 @@
           appendOutput(
             "Examples: :tabs twitch · :alias stream move twitch, new_window · :search cats",
           );
-        } else if (command.name === "version") {
-          appendOutput("Firefox Vim Controls v0.1.0");
-        } else if (command.name === "clear") {
-          output.replaceChildren();
-        } else {
-          const requestCommand = commandForExecution(command);
-          const response = await browser.runtime.sendMessage({
-            type: "VIM_COMMAND_REQUEST",
-            command: {
-              name: requestCommand.name,
-              args: requestCommand.args,
-              destination: requestCommand.destination,
-            },
-          });
-          if (!response?.ok) {
-            appendOutput(response?.error || "The background command failed.", "error");
-            break;
-          }
-          for (const line of response.output || []) appendOutput(line);
-          if (response.requiresConfirmation) {
-            appendOutput("Command chain stopped here. Confirm this action separately with --confirm.");
-            break;
-          }
+          return { ok: true };
         }
-      }
+        if (command.name === "version") {
+          appendOutput("Firefox Vim Controls v0.1.0");
+          return { ok: true };
+        }
+        if (command.name === "clear") {
+          output.replaceChildren();
+          return { ok: true };
+        }
+        const requestCommand = commandForExecution(command);
+        const response = await browser.runtime.sendMessage({
+          type: "VIM_COMMAND_REQUEST",
+          command: {
+            name: requestCommand.name,
+            args: requestCommand.args,
+            destination: requestCommand.destination,
+          },
+        });
+        if (!response?.ok) {
+          appendOutput(response?.error || "The background command failed.", "error");
+          return response || { ok: false };
+        }
+        for (const line of response.output || []) appendOutput(line);
+        if (response.requiresConfirmation) {
+          appendOutput("Command chain stopped here. Confirm this action separately with --confirm.");
+        }
+        return response;
+      });
+
       input.value = "";
     } catch (error) {
       appendOutput(error.message, "error");
