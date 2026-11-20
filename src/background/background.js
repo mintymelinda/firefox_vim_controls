@@ -192,7 +192,16 @@
     }
     const [action, ...nameParts] = command.args;
     const name = nameParts.join(" ").trim();
-    const { sessions, lastSessionName } = await readSessionCollections(browserApi);
+    if (
+      (action === "list" || action === "restore") &&
+      nameParts.length > 0
+    ) {
+      throw new Error("This session action does not accept a name.");
+    }
+    if (["save", "load", "append", "delete"].includes(action) && nameParts.length !== 1) {
+      throw new Error("This session action requires exactly one name.");
+    }
+    const { sessions, lastSessionName, workspaces } = await readSessionCollections(browserApi);
     if (action === "list") {
       const entries = root.VimSessionState.listRecords(
         sessions,
@@ -256,6 +265,15 @@
     }
     const [action, ...nameParts] = command.args;
     const name = nameParts.join(" ").trim();
+    if (action === "list" && nameParts.length > 0) {
+      throw new Error("Workspace list does not accept a name.");
+    }
+    if (["create", "switch"].includes(action) && nameParts.length !== 1) {
+      throw new Error("This workspace action requires exactly one name.");
+    }
+    if (action === "rename" && nameParts.length !== 2) {
+      throw new Error("Workspace rename syntax: :workspace rename old new.");
+    }
     const { sessions, workspaces } = await readSessionCollections(browserApi);
     if (action === "list") {
       const entries = root.VimSessionState.listRecords(
