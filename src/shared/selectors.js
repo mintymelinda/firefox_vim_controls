@@ -64,6 +64,27 @@
     if (value === "active") {
       return tabs.filter((tab) => tab.active && tab.windowId === options.currentWindowId);
     }
+    if (["other", "left", "right"].includes(value)) {
+      if (options.currentWindowId === undefined) {
+        throw new Error("Relative selectors require a focused normal browser window.");
+      }
+      const currentWindowTabs = tabs.filter((tab) => tab.windowId === options.currentWindowId);
+      const activeTab = currentWindowTabs.find((tab) => tab.active);
+      if (!activeTab) return [];
+      if (value === "other") {
+        return currentWindowTabs.filter((tab) => tab.id !== activeTab.id);
+      }
+      if (!Number.isInteger(activeTab.index)) return [];
+      return currentWindowTabs.filter((tab) =>
+        value === "left" ? tab.index < activeTab.index : tab.index > activeTab.index,
+      );
+    }
+    if (value === "empty") {
+      return tabs.filter((tab) =>
+        ["", "about:blank", "about:newtab"].includes(String(tab.url || "").toLowerCase()),
+      );
+    }
+    if (value === "discarded") return tabs.filter((tab) => tab.discarded === true);
     if (value === "pinned") return tabs.filter((tab) => tab.pinned);
     if (value === "audible") return tabs.filter((tab) => tab.audible);
     if (value === "loading") return tabs.filter((tab) => tab.status === "loading");
