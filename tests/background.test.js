@@ -771,7 +771,6 @@ test("rejects invalid session command syntax and missing focused append target",
   assert.match(append.error, /There is no focused normal browser window/);
 });
 
-
 test("persists and validates macros through the background message boundary", async () => {
   const api = createBrowserApi();
   const sender = { tab: { id: 1, incognito: false } };
@@ -827,12 +826,7 @@ test("macro storage is never accessed from private tabs", async () => {
   const sender = { tab: { id: 9, incognito: true } };
   const beforeGets = api.calls.storageGets.length;
   const beforeSets = api.calls.storageSets.length;
-  const result = await handleMessage(
-    { type: "VIM_MACRO_GET" },
-    api,
-    selectors,
-    sender,
-  );
+  const result = await handleMessage({ type: "VIM_MACRO_GET" }, api, selectors, sender);
   assert.equal(result.ok, false);
   assert.match(result.error, /disabled in private browsing/);
   assert.equal(api.calls.storageGets.length, beforeGets);
@@ -902,10 +896,7 @@ test("undo restores tabs to source windows after merge", async () => {
   const api = createBrowserApi();
   const sender = { tab: { incognito: false } };
   await handleMessage(request("merge"), api, selectors, sender);
-  assert.deepEqual(
-    (await api.windows.getAll()).find((window) => window.id === 11).tabs,
-    [],
-  );
+  assert.deepEqual((await api.windows.getAll()).find((window) => window.id === 11).tabs, []);
   await api.windows.remove(11);
   const undone = await handleMessage(request("undo"), api, selectors, sender);
   assert.equal(undone.ok, true);
@@ -913,7 +904,10 @@ test("undo restores tabs to source windows after merge", async () => {
     window.tabs.some((tab) => tab.id === 3),
   );
   assert.notEqual(restoredWindow.id, 11);
-  assert.deepEqual(restoredWindow.tabs.map((tab) => tab.id), [3, 4]);
+  assert.deepEqual(
+    restoredWindow.tabs.map((tab) => tab.id),
+    [3, 4],
+  );
 });
 
 test("irreversible commands clear undo history and private undo is blocked", async () => {
@@ -931,12 +925,9 @@ test("irreversible commands clear undo history and private undo is blocked", asy
   assert.equal(cleared.ok, false);
   assert.match(cleared.error, /There is no supported command to undo/);
 
-  const privateUndo = await handleMessage(
-    request("undo"),
-    api,
-    selectors,
-    { tab: { incognito: true } },
-  );
+  const privateUndo = await handleMessage(request("undo"), api, selectors, {
+    tab: { incognito: true },
+  });
   assert.equal(privateUndo.ok, false);
   assert.match(privateUndo.error, /private browsing/);
 });
