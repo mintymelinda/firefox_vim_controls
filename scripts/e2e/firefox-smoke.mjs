@@ -218,6 +218,13 @@ try {
     return text.includes("Firefox Vim Controls fixture") ? text : null;
   });
   assert.match(output, /Firefox Vim Controls fixture/);
+  await waitFor(
+    "command input reset after background response",
+    async () => (await executeScript(
+      sessionId,
+      "return document.querySelector('#fvc-command-panel input').value === ''",
+    )),
+  );
 
   const initialOutputCount = await executeScript(
     sessionId,
