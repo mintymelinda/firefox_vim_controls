@@ -62,7 +62,7 @@
     line.className = `fvc-output fvc-output-${kind}`;
     line.textContent = message;
     output.append(line);
-    while (output.childElementCount > MAX_OUTPUT_LINES) output.firstElementChild?.remove();
+    globalThis.VimPromptOutput.trimOutput(output, MAX_OUTPUT_LINES);
     output.scrollTop = output.scrollHeight;
   }
 
