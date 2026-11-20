@@ -937,3 +937,17 @@ test("irreversible commands clear undo history and private undo is blocked", asy
   assert.equal(privateUndo.ok, false);
   assert.match(privateUndo.error, /private browsing/);
 });
+
+
+test("confirmation previews stop destructive actions without clearing undo", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("pin", ["twitch"]), api, selectors, sender);
+  const preview = await handleMessage(request("close", ["all"]), api, selectors, sender);
+  assert.equal(preview.ok, true);
+  assert.equal(preview.requiresConfirmation, true);
+  const undone = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(undone.ok, true);
+  assert.ok(api.calls.updated.some((call) => call.id === 1 && call.properties.pinned === false));
+});
