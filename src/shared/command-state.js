@@ -17,6 +17,7 @@
     "history",
     "clear_history",
     "set",
+    "macro",
   ]);
   const SELECTOR_COMPLETIONS = [
     "all",
@@ -183,6 +184,8 @@
       candidates = [...commandNames, ...Object.keys(aliases)];
     } else if (parts[0] === "alias" && parts.length >= 2) {
       candidates = commandNames;
+    } else if (parts[0] === "macro" && parts.length <= 2) {
+      candidates = ["define", "run", "list", "delete"];
     } else if (parts[0] === "session" && parts.length <= 2) {
       candidates = ["save", "load", "append", "list", "delete", "restore"];
     } else if (parts[0] === "workspace" && parts.length <= 2) {

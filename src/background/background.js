@@ -32,7 +32,165 @@
     "home",
     "session",
     "workspace",
+    "undo",
   ]);
+
+  const undoStack = [];
+  const MAX_UNDO_ENTRIES = 20;
+  const UNDO_BARRIERS = new Set([
+    "open",
+    "search",
+    "back",
+    "forward",
+    "home",
+    "new_window",
+    "window",
+    "fullscreen",
+    "minimize",
+    "maximize",
+    "session",
+    "workspace",
+  ]);
+
+  function captureTabPositions(tabs) {
+    return tabs.map((tab) => ({
+      id: tab.id,
+      windowId: tab.windowId,
+      index: tab.index,
+      pinned: Boolean(tab.pinned),
+      muted: Boolean(tab.mutedInfo?.muted ?? tab.muted),
+    }));
+  }
+
+  function pushUndo(entry) {
+    if (!entry?.positions?.length && !entry?.tabs?.length) return;
+    undoStack.push(entry);
+    if (undoStack.length > MAX_UNDO_ENTRIES) undoStack.shift();
+  }
+
+  function clearUndoStack() {
+    undoStack.length = 0;
+  }
+
+  async function restoreTabPositions(positions, browserApi) {
+    const windows = await getNormalWindowSnapshot(browserApi);
+    const currentWindows = new Map(windows.map((window) => [window.id, window]));
+    const currentTabs = new Map(
+      windows.flatMap((window) =>
+        window.tabs.map((tab) => [tab.id, { ...tab, windowId: window.id }]),
+      ),
+    );
+    const groups = new Map();
+    for (const position of [...positions].sort((left, right) => {
+      return left.windowId - right.windowId || left.index - right.index;
+    })) {
+      const group = groups.get(position.windowId) || [];
+      group.push(position);
+      groups.set(position.windowId, group);
+    }
+    const failures = [];
+    let moved = 0;
+    for (const [originalWindowId, group] of groups) {
+      let targetWindowId = originalWindowId;
+      if (!currentWindows.has(targetWindowId)) {
+        const first = group.find((position) => currentTabs.has(position.id));
+        if (!first) {
+          failures.push(
+            `Original window ${originalWindowId} no longer exists and no saved tabs remain.`,
+          );
+          continue;
+        }
+        try {
+          const created = await browserApi.windows.create({
+            tabId: first.id,
+            focused: false,
+          });
+          targetWindowId = created.id;
+          currentTabs.set(first.id, {
+            ...currentTabs.get(first.id),
+            windowId: targetWindowId,
+            index: 0,
+          });
+          moved += 1;
+        } catch (error) {
+          failures.push(
+            `Could not recreate window ${originalWindowId}: ${error instanceof Error ? error.message : "window creation failed"}`,
+          );
+          continue;
+        }
+      }
+      for (const position of group) {
+        if (!currentTabs.has(position.id)) {
+          failures.push(`Tab #${position.id} is no longer open.`);
+          continue;
+        }
+        const current = currentTabs.get(position.id);
+        if (current.windowId === targetWindowId && current.index === position.index) continue;
+        try {
+          await browserApi.tabs.move(position.id, {
+            windowId: targetWindowId,
+            index: position.index,
+          });
+          currentTabs.set(position.id, {
+            ...current,
+            windowId: targetWindowId,
+            index: position.index,
+          });
+          moved += 1;
+        } catch (error) {
+          failures.push(
+            `Tab #${position.id}: ${error instanceof Error ? error.message : "tab move failed"}`,
+          );
+        }
+      }
+    }
+    return { failures, moved };
+  }
+
+  async function undoLastCommand(browserApi) {
+    const entry = undoStack.at(-1);
+    if (!entry) return { ok: false, error: "There is no supported command to undo." };
+    const failures = [];
+    if (entry.type === "tab-state") {
+      for (const tab of entry.tabs) {
+        try {
+          await browserApi.tabs.update(tab.id, tab.properties);
+        } catch (error) {
+          failures.push(
+            `Tab #${tab.id}: ${error instanceof Error ? error.message : "state restore failed"}`,
+          );
+        }
+      }
+    }
+    const restored = await restoreTabPositions(entry.positions, browserApi);
+    failures.push(...restored.failures);
+    if (!failures.length && entry.cleanupWindowIds?.length && browserApi.windows.remove) {
+      const windows = await getNormalWindowSnapshot(browserApi);
+      for (const id of entry.cleanupWindowIds) {
+        const window = windows.find((item) => item.id === id);
+        if (window && window.tabs.length === 0) {
+          try {
+            await browserApi.windows.remove(id);
+          } catch (error) {
+            failures.push(
+              `Window #${id}: ${error instanceof Error ? error.message : "could not close empty window"}`,
+            );
+          }
+        }
+      }
+    }
+    if (failures.length) {
+      return {
+        ok: false,
+        error: `Undo was partial (${restored.moved} tab move(s) restored): ${failures.join("; ")}`,
+      };
+    }
+    undoStack.pop();
+    return {
+      ok: true,
+      output: [`Undid ${entry.label || "the previous reversible command"}.`],
+    };
+  }
 
   function validateCommandRequest(message) {
     if (!message || typeof message !== "object" || message.type !== "VIM_COMMAND_REQUEST") {
@@ -67,6 +225,81 @@
       return "Invalid command destination";
     }
     return null;
+  }
+
+  const MACRO_STORAGE_KEY = "fvcCommandMacros";
+
+  function allowedMacroCommands() {
+    return [...IMPLEMENTED_COMMANDS].filter((name) => name !== "undo");
+  }
+
+  function validateMacroMessage(message) {
+    if (!message || typeof message !== "object" || Array.isArray(message)) {
+      return "Invalid macro message";
+    }
+    const types = {
+      VIM_MACRO_GET: ["type", "name"],
+      VIM_MACRO_SET: ["type", "name", "commands"],
+      VIM_MACRO_DELETE: ["type", "name"],
+    };
+    const allowedKeys = types[message.type];
+    if (!allowedKeys) return "Invalid macro message type";
+    if (Object.keys(message).some((key) => !allowedKeys.includes(key))) {
+      return "Unexpected macro message properties";
+    }
+    if (message.type !== "VIM_MACRO_GET" || Object.hasOwn(message, "name")) {
+      try {
+        root.VimMacroState.normalizeName(message.name);
+      } catch (error) {
+        return error instanceof Error ? error.message : "Invalid macro name";
+      }
+    }
+    if (message.type === "VIM_MACRO_SET") {
+      try {
+        root.VimMacroState.normalizeCommands(message.commands, allowedMacroCommands());
+      } catch (error) {
+        return error instanceof Error ? error.message : "Invalid macro commands";
+      }
+    }
+    return null;
+  }
+
+  async function handleMacroMessage(message, browserApi, sender = {}) {
+    const validationError = validateMacroMessage(message);
+    if (validationError) return { ok: false, error: validationError };
+    if (sender.tab?.incognito) {
+      return { ok: false, error: "Macros are disabled in private browsing." };
+    }
+    if (!browserApi?.storage?.local || !root.VimMacroState) {
+      return { ok: false, error: "Local macro storage is unavailable." };
+    }
+    const stored = await browserApi.storage.local.get([MACRO_STORAGE_KEY]);
+    const macros = root.VimMacroState.normalizeMacros(
+      stored[MACRO_STORAGE_KEY],
+      allowedMacroCommands(),
+    );
+    if (message.type === "VIM_MACRO_GET") {
+      if (!Object.hasOwn(message, "name")) {
+        return { ok: true, macros: root.VimMacroState.listMacros(macros, allowedMacroCommands()) };
+      }
+      const name = root.VimMacroState.normalizeName(message.name);
+      const record = macros[name];
+      if (!record) return { ok: false, error: `No macro named "${name}" exists.` };
+      return { ok: true, name, commands: record.commands };
+    }
+    if (message.type === "VIM_MACRO_SET") {
+      const updated = root.VimMacroState.saveMacro(
+        macros,
+        message.name,
+        message.commands,
+        allowedMacroCommands(),
+      );
+      await browserApi.storage.local.set({ [MACRO_STORAGE_KEY]: updated });
+      return { ok: true, output: [`Macro "${message.name}" saved.`] };
+    }
+    const updated = root.VimMacroState.deleteMacro(macros, message.name, allowedMacroCommands());
+    await browserApi.storage.local.set({ [MACRO_STORAGE_KEY]: updated });
+    return { ok: true, output: [`Macro "${message.name}" deleted.`] };
   }
 
   const SESSION_STORAGE_KEYS = ["fvcSessions", "fvcLastSessionName", "fvcWorkspaces"];
@@ -533,7 +766,7 @@
     const succeeded = tabs.length - failures.length;
     const output = [`${succeeded} of ${tabs.length} tab(s) updated.`];
     output.push(...failures);
-    return { ok: true, output };
+    return { ok: failures.length === 0, output };
   }
 
   function resolveMoveTarget(destination, windows, focusedWindow) {
@@ -709,17 +942,24 @@
       }
       let moved = 0;
       const failures = [];
+      const movedPositions = [];
       for (const source of sources) {
         const ids = source.tabs.map((tab) => tab.id);
         if (!ids.length) continue;
         try {
           await browserApi.tabs.move(ids, { windowId: target.id, index: -1 });
           moved += ids.length;
+          movedPositions.push(
+            ...captureTabPositions(source.tabs.map((tab) => ({ ...tab, windowId: source.id }))),
+          );
         } catch (error) {
           failures.push(
             `Window ${source.index}: ${error instanceof Error ? error.message : "move failed"}`,
           );
         }
+      }
+      if (movedPositions.length) {
+        pushUndo({ type: "positions", positions: movedPositions, label: "merge" });
       }
       const output = [`Moved ${moved} tab(s) into window ${target.index}.`, ...failures];
       return {
@@ -751,8 +991,13 @@
         return { ok: true, output: [message] };
       }
       if (removable.length > 1 && !confirmed) {
-        return { ok: true, output: previewLines(name, selector, removable, windows) };
+        return {
+          ok: true,
+          requiresConfirmation: true,
+          output: previewLines(name, selector, removable, windows),
+        };
       }
+      clearUndoStack();
       const result = await performPerTab(removable, (id) => browserApi.tabs.remove(id));
       if (protectedCount) result.output.push(`Kept one tab open in ${protectedCount} window(s).`);
       return result;
@@ -761,8 +1006,13 @@
     if (name === "reload") {
       if (!selected.length) return { ok: true, output: ["No tabs matched."] };
       if (selected.length > 1 && !confirmed) {
-        return { ok: true, output: previewLines(name, selector, selected, windows) };
+        return {
+          ok: true,
+          requiresConfirmation: true,
+          output: previewLines(name, selector, selected, windows),
+        };
       }
+      clearUndoStack();
       return performPerTab(selected, (id) => browserApi.tabs.reload(id));
     }
 
@@ -776,8 +1026,13 @@
         return { ok: true, output: [message] };
       }
       if (eligible.length > 1 && !confirmed) {
-        return { ok: true, output: previewLines(name, selector, eligible, windows) };
+        return {
+          ok: true,
+          requiresConfirmation: true,
+          output: previewLines(name, selector, eligible, windows),
+        };
       }
+      clearUndoStack();
       const result = await performPerTab(eligible, (id) => browserApi.tabs.discard(id));
       if (skipped) result.output.push(`Skipped ${skipped} active or already-discarded tab(s).`);
       return result;
@@ -805,11 +1060,24 @@
       const affected = windows.filter((window) =>
         selected.some((tab) => tab.windowId === window.id),
       );
+      const positions = captureTabPositions(
+        affected.flatMap((window) => window.tabs.map((tab) => ({ ...tab, windowId: window.id }))),
+      );
       let changed = 0;
-      for (const window of affected) {
-        const inWindow = selected.filter((tab) => tab.windowId === window.id);
-        changed += await reorderWindow(window, inWindow, name, key, browserApi, selectors);
+      try {
+        for (const window of affected) {
+          const inWindow = selected.filter((tab) => tab.windowId === window.id);
+          changed += await reorderWindow(window, inWindow, name, key, browserApi, selectors);
+        }
+      } catch (error) {
+        const rollback = await restoreTabPositions(positions, browserApi);
+        if (rollback.failures.length) pushUndo({ type: "positions", positions, label: name });
+        return {
+          ok: false,
+          error: `Could not complete ${name}: ${error instanceof Error ? error.message : "tab reorder failed"}`,
+        };
       }
+      if (changed) pushUndo({ type: "positions", positions, label: name });
       return {
         ok: true,
         output: [
@@ -822,19 +1090,37 @@
       if (!selected.length) return { ok: true, output: ["No tabs matched."] };
       const target = resolveMoveTarget(command.destination, windows, focusedWindow);
       if (target.type === "new") {
+        const positions = captureTabPositions(selected);
         const [first, ...remaining] = selected;
         const created = await browserApi.windows.create({ tabId: first.id });
         if (remaining.length) {
           try {
             await moveTabsToWindow(remaining, created.id, browserApi);
           } catch (error) {
+            const rollback = await restoreTabPositions(positions, browserApi);
+            if (rollback.failures.length) {
+              pushUndo({
+                type: "positions",
+                positions,
+                label: "move",
+                cleanupWindowIds: [created.id],
+              });
+            } else if (browserApi.windows.remove) {
+              await browserApi.windows.remove(created.id).catch(() => {});
+            }
             const message = error instanceof Error ? error.message : "move failed";
             return {
               ok: false,
-              error: `Created window ${created.id} with tab ${first.id}, but remaining tabs could not be moved: ${message}`,
+              error: `Could not move all tabs to new window ${created.id}: ${message}`,
             };
           }
         }
+        pushUndo({
+          type: "positions",
+          positions,
+          label: "move",
+          cleanupWindowIds: [created.id],
+        });
         return {
           ok: true,
           output: [`Moved ${selected.length} tab(s) into new window ${created.id}.`],
@@ -844,7 +1130,18 @@
       if (!moving.length) {
         return { ok: true, output: ["All selected tabs are already in the destination window."] };
       }
-      await moveTabsToWindow(moving, target.window.id, browserApi);
+      const positions = captureTabPositions(moving);
+      try {
+        await moveTabsToWindow(moving, target.window.id, browserApi);
+      } catch (error) {
+        const rollback = await restoreTabPositions(positions, browserApi);
+        if (rollback.failures.length) pushUndo({ type: "positions", positions, label: "move" });
+        return {
+          ok: false,
+          error: `Could not move all selected tabs: ${error instanceof Error ? error.message : "tab move failed"}`,
+        };
+      }
+      pushUndo({ type: "positions", positions, label: "move" });
       return {
         ok: true,
         output: [`Moved ${moving.length} tab(s) into window ${target.window.index}.`],
@@ -859,7 +1156,40 @@
     }[name];
     if (updateProperties) {
       if (!selected.length) return { ok: true, output: ["No tabs matched."] };
-      return performPerTab(selected, (id) => browserApi.tabs.update(id, updateProperties));
+      const previous = selected.map((tab) => ({
+        id: tab.id,
+        properties:
+          name === "pin" || name === "unpin"
+            ? { pinned: Boolean(tab.pinned) }
+            : { muted: Boolean(tab.mutedInfo?.muted ?? tab.muted) },
+      }));
+      const results = await Promise.all(
+        selected.map(async (tab) => {
+          try {
+            await browserApi.tabs.update(tab.id, updateProperties);
+            return null;
+          } catch (error) {
+            return `#${tab.id}: ${error instanceof Error ? error.message : "update failed"}`;
+          }
+        }),
+      );
+      const failures = results.filter(Boolean);
+      const succeededIds = new Set(
+        selected.filter((_tab, index) => !results[index]).map((tab) => tab.id),
+      );
+      const succeeded = previous.filter((tab) => succeededIds.has(tab.id));
+      if (succeeded.length) {
+        pushUndo({
+          type: "tab-state",
+          tabs: succeeded,
+          positions: captureTabPositions(selected.filter((tab) => succeededIds.has(tab.id))),
+          label: name,
+        });
+      }
+      return {
+        ok: failures.length === 0,
+        output: [`${succeeded.length} of ${selected.length} tab(s) updated.`, ...failures],
+      };
     }
 
     return { ok: false, error: `Command is not available: ${name}` };
@@ -961,7 +1291,11 @@
     });
     if (!selected.length) return { ok: true, output: [`No tabs matched ${selector}.`] };
     if (command.name === "refresh" && selected.length > 1 && !confirmed) {
-      return { ok: true, output: previewLines("refresh", selector, selected, windows) };
+      return {
+        ok: true,
+        requiresConfirmation: true,
+        output: previewLines("refresh", selector, selected, windows),
+      };
     }
     const operations = {
       back: (id) => browserApi.tabs.goBack(id),
@@ -970,6 +1304,7 @@
       home: (id) => browserApi.tabs.update(id, { url: "about:home" }),
     };
     const operation = operations[command.name];
+    if (command.name === "refresh") clearUndoStack();
     if (!operation) {
       return { ok: false, error: `Navigation command is unavailable: ${command.name}` };
     }
@@ -1000,6 +1335,13 @@
   }
 
   async function executeCommand(command, browserApi, selectors) {
+    if (command.name === "undo") {
+      if (command.args.length || command.destination.length) {
+        return { ok: false, error: "Undo syntax: :undo." };
+      }
+      return undoLastCommand(browserApi);
+    }
+    if (UNDO_BARRIERS.has(command.name)) clearUndoStack();
     const windows = await getNormalWindowSnapshot(browserApi);
     const focusedWindow = windows.find((window) => window.focused);
     if (command.name === "session") {
@@ -1108,6 +1450,16 @@
     selectors = root.VimTabSelectors,
     sender = {},
   ) {
+    if (["VIM_MACRO_GET", "VIM_MACRO_SET", "VIM_MACRO_DELETE"].includes(message?.type)) {
+      try {
+        return await handleMacroMessage(message, browserApi, sender);
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Could not access macro storage.",
+        };
+      }
+    }
     if (message?.type === "VIM_STATE_GET" || message?.type === "VIM_STATE_SET") {
       try {
         return await handleStateMessage(message, browserApi, sender);
@@ -1121,10 +1473,10 @@
     const validationError = validateCommandRequest(message);
     if (validationError) return { ok: false, error: validationError };
     const { command } = message;
-    if (sender.tab?.incognito && ["session", "workspace"].includes(command.name)) {
+    if (sender.tab?.incognito && ["session", "workspace", "undo"].includes(command.name)) {
       return {
         ok: false,
-        error: "Session and workspace commands are disabled in private browsing.",
+        error: "Session, workspace, and undo commands are disabled in private browsing.",
       };
     }
     if (!IMPLEMENTED_COMMANDS.has(command.name)) {
@@ -1162,6 +1514,11 @@
     getNormalWindowSnapshot,
     handleMessage,
     handleStateMessage,
+    handleMacroMessage,
+    validateMacroMessage,
+    clearUndoStack,
+    undoLastCommand,
+    restoreTabPositions,
     validateStateMessage,
     orderedSelection,
     previewLines,

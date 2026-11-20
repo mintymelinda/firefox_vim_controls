@@ -64,7 +64,7 @@ test("normalizes malformed collections and enforces collection limits", () => {
     2,
   );
   assert.deepEqual(Object.keys(collection), ["valid"]);
-  let saved = state.saveRecord({}, "work", snapshot(), 1);
+  const saved = state.saveRecord({}, "work", snapshot(), 1);
   assert.deepEqual(Object.keys(saved), ["work"]);
   assert.throws(() => state.saveRecord(saved, "personal", snapshot(), 1), /limit of 1/);
   assert.throws(() => state.saveRecord({}, "bad name", snapshot(), 10), /Names must start/);

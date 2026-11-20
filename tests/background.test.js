@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   handleMessage,
+  clearUndoStack,
   removableTabs,
   resolveMoveTarget,
   validateCommandRequest,
@@ -10,6 +11,7 @@ const selectors = require("../src/shared/selectors.js");
 require("../src/shared/registry.js");
 require("../src/shared/command-state.js");
 require("../src/shared/session-state.js");
+require("../src/shared/macro-state.js");
 
 function makeWindows() {
   return [
@@ -42,6 +44,12 @@ function makeWindows() {
 
 function createBrowserApi() {
   const windows = makeWindows();
+  const syncIndexes = (window) => {
+    window.tabs.forEach((tab, index) => {
+      tab.index = index;
+    });
+  };
+  windows.forEach(syncIndexes);
   const calls = {
     removed: [],
     updated: [],
@@ -94,6 +102,7 @@ function createBrowserApi() {
           : undefined;
         for (const window of windows) {
           window.tabs = window.tabs.filter((item) => item.id !== tabId);
+          syncIndexes(window);
         }
         const createdTabs = tab
           ? [tab]
@@ -107,6 +116,7 @@ function createBrowserApi() {
           state: "normal",
           tabs: createdTabs,
         });
+        syncIndexes(windows.at(-1));
         calls.windowCreates.push({ id, tabId, url, focused });
         return { id, tabs: createdTabs };
       },
@@ -128,6 +138,7 @@ function createBrowserApi() {
         calls.removed.push(...values);
         for (const window of windows) {
           window.tabs = window.tabs.filter((tab) => !values.includes(tab.id));
+          syncIndexes(window);
         }
       },
       update: async (id, properties) => {
@@ -139,6 +150,7 @@ function createBrowserApi() {
             for (const item of window.tabs) item.active = item.id === id;
           }
           Object.assign(tab, properties);
+          syncIndexes(window);
         }
       },
       create: async (properties) => {
@@ -150,14 +162,37 @@ function createBrowserApi() {
           active: properties.active,
         };
         const window = windows.find((item) => item.id === properties.windowId);
-        if (window) window.tabs.push(tab);
+        if (window) {
+          window.tabs.push(tab);
+          syncIndexes(window);
+        }
         return tab;
       },
       goBack: async (id) => calls.wentBack.push(id),
       goForward: async (id) => calls.wentForward.push(id),
       reload: async (id) => calls.reloaded.push(id),
       discard: async (id) => calls.discarded.push(id),
-      move: async (ids, properties) => calls.moved.push({ ids, properties }),
+      move: async (ids, properties) => {
+        calls.moved.push({ ids, properties });
+        const tabIds = Array.isArray(ids) ? ids : [ids];
+        const movingTabs = [];
+        for (const id of tabIds) {
+          for (const window of windows) {
+            const index = window.tabs.findIndex((tab) => tab.id === id);
+            if (index < 0) continue;
+            movingTabs.push(window.tabs.splice(index, 1)[0]);
+            syncIndexes(window);
+            break;
+          }
+        }
+        const target = windows.find((window) => window.id === properties.windowId);
+        if (target) {
+          const index = properties.index < 0 ? target.tabs.length : properties.index;
+          target.tabs.splice(index, 0, ...movingTabs);
+          syncIndexes(target);
+        }
+        return movingTabs;
+      },
     },
   };
 }
@@ -738,4 +773,181 @@ test("rejects invalid session command syntax and missing focused append target",
     sender,
   );
   assert.match(append.error, /There is no focused normal browser window/);
+});
+
+test("persists and validates macros through the background message boundary", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { id: 1, incognito: false } };
+  const commands = [
+    { name: "tabs", args: ["twitch"], destination: [] },
+    { name: "count", args: ["all"], destination: [] },
+  ];
+  const saved = await handleMessage(
+    { type: "VIM_MACRO_SET", name: "stream", commands },
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(saved.ok, true);
+  assert.deepEqual(api.storageData.fvcCommandMacros.stream.commands, commands);
+
+  const loaded = await handleMessage(
+    { type: "VIM_MACRO_GET", name: "stream" },
+    api,
+    selectors,
+    sender,
+  );
+  assert.deepEqual(loaded.commands, commands);
+
+  const listed = await handleMessage({ type: "VIM_MACRO_GET" }, api, selectors, sender);
+  assert.deepEqual(listed.macros, [{ name: "stream", commands: 2 }]);
+
+  const invalid = await handleMessage(
+    {
+      type: "VIM_MACRO_SET",
+      name: "unsafe",
+      commands: [{ name: "eval", args: ["alert(1)"], destination: [] }],
+    },
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(invalid.ok, false);
+  assert.match(invalid.error, /invalid or unsupported/);
+
+  const deleted = await handleMessage(
+    { type: "VIM_MACRO_DELETE", name: "stream" },
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(deleted.ok, true);
+  assert.deepEqual(Object.keys(api.storageData.fvcCommandMacros), []);
+});
+
+test("macro storage is never accessed from private tabs", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { id: 9, incognito: true } };
+  const beforeGets = api.calls.storageGets.length;
+  const beforeSets = api.calls.storageSets.length;
+  const result = await handleMessage({ type: "VIM_MACRO_GET" }, api, selectors, sender);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /disabled in private browsing/);
+  assert.equal(api.calls.storageGets.length, beforeGets);
+  assert.equal(api.calls.storageSets.length, beforeSets);
+});
+
+test("undo restores tabs moved into a new window", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const moved = await handleMessage(
+    request("move", ["twitch"], ["new_window"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(moved.ok, true);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
+    [2],
+  );
+
+  const undone = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(undone.ok, true);
+  assert.match(undone.output[0], /Undid move/);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
+    [1, 2],
+  );
+  assert.equal(
+    (await api.windows.getAll()).some((window) => window.id === 20),
+    false,
+  );
+});
+
+test("undo restores previous pinned and muted state", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("pin", ["twitch"]), api, selectors, sender);
+  const pinUndo = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(pinUndo.ok, true);
+  assert.ok(api.calls.updated.some((call) => call.id === 1 && call.properties.pinned === false));
+
+  await handleMessage(request("mute", ["twitch"]), api, selectors, sender);
+  const muteUndo = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(muteUndo.ok, true);
+  assert.ok(api.calls.updated.some((call) => call.id === 1 && call.properties.muted === false));
+});
+
+test("undo restores original tab ordering after sort or reverse", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("reverse", ["all"]), api, selectors, sender);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
+    [2, 1],
+  );
+  const undone = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(undone.ok, true);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
+    [1, 2],
+  );
+});
+
+test("undo restores tabs to source windows after merge", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("merge"), api, selectors, sender);
+  assert.deepEqual((await api.windows.getAll()).find((window) => window.id === 11).tabs, []);
+  await api.windows.remove(11);
+  const undone = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(undone.ok, true);
+  const restoredWindow = (await api.windows.getAll()).find((window) =>
+    window.tabs.some((tab) => tab.id === 3),
+  );
+  assert.notEqual(restoredWindow.id, 11);
+  assert.deepEqual(
+    restoredWindow.tabs.map((tab) => tab.id),
+    [3, 4],
+  );
+});
+
+test("irreversible commands clear undo history and private undo is blocked", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("pin", ["twitch"]), api, selectors, sender);
+  await handleMessage(request("tabs", ["all"]), api, selectors, sender);
+  const stillAvailable = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(stillAvailable.ok, true);
+
+  await handleMessage(request("pin", ["twitch"]), api, selectors, sender);
+  await handleMessage(request("reload", ["active"]), api, selectors, sender);
+  const cleared = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(cleared.ok, false);
+  assert.match(cleared.error, /There is no supported command to undo/);
+
+  const privateUndo = await handleMessage(request("undo"), api, selectors, {
+    tab: { incognito: true },
+  });
+  assert.equal(privateUndo.ok, false);
+  assert.match(privateUndo.error, /private browsing/);
+});
+
+test("confirmation previews stop destructive actions without clearing undo", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("pin", ["twitch"]), api, selectors, sender);
+  const preview = await handleMessage(request("close", ["all"]), api, selectors, sender);
+  assert.equal(preview.ok, true);
+  assert.equal(preview.requiresConfirmation, true);
+  const undone = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(undone.ok, true);
+  assert.ok(api.calls.updated.some((call) => call.id === 1 && call.properties.pinned === false));
 });
