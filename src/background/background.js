@@ -933,17 +933,22 @@
       }
       let moved = 0;
       const failures = [];
+      const movedPositions = [];
       for (const source of sources) {
         const ids = source.tabs.map((tab) => tab.id);
         if (!ids.length) continue;
         try {
           await browserApi.tabs.move(ids, { windowId: target.id, index: -1 });
           moved += ids.length;
+          movedPositions.push(...captureTabPositions(source.tabs));
         } catch (error) {
           failures.push(
             `Window ${source.index}: ${error instanceof Error ? error.message : "move failed"}`,
           );
         }
+      }
+      if (movedPositions.length) {
+        pushUndo({ type: "positions", positions: movedPositions, label: "merge" });
       }
       const output = [`Moved ${moved} tab(s) into window ${target.index}.`, ...failures];
       return {
