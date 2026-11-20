@@ -15,7 +15,7 @@ The minimum version is declared in `manifest.json` under `browser_specific_setti
 
 ## Verification matrix
 
-The default Docker/Compose workflow validates JavaScript formatting, lint, unit tests, build, and ZIP packaging. A separate Docker/Compose browser-test service launches real Firefox through Selenium WebDriver and exercises the extension on a local fixture page. It currently covers the current pinned Firefox image; it does not replace the Firefox 115 ESR release smoke test or screen-reader testing.
+The default Docker/Compose workflow validates JavaScript formatting, lint, unit tests, build, and ZIP packaging. A separate Docker/Compose browser-test service launches real Firefox through Selenium WebDriver and exercises the extension on a local fixture page, including the `about:blank` injection boundary. WebDriver blocks direct navigation to Firefox internal pages such as `about:addons`, so that internal-page check remains a manual release check. The automated suite currently covers the pinned current Firefox image; it does not replace the Firefox 115 ESR release smoke test or screen-reader testing.
 
 | Browser target | Support intent | Verification status |
 |---|---|---|
