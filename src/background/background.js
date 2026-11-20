@@ -1459,6 +1459,9 @@
     });
 
     if (command.name === "audible" || command.name === "loading") {
+      if (command.destination.length) {
+        return { ok: false, error: `:${command.name} does not accept a destination.` };
+      }
       const statusMatched = selectors.selectTabs(tabs, command.name, {
         currentWindowId: focusedWindow?.id,
         windows,
