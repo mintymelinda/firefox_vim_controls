@@ -50,7 +50,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - "curl -fsS http://localhost:4444/status | grep -q '\\"ready\\": true'"
+        - "curl -fsS http://localhost:4444/status | grep -q '\"ready\": true'"
       interval: 5s
       timeout: 5s
       retries: 30
