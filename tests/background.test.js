@@ -652,3 +652,53 @@ test("session restoration reports browser API failures without closing existing 
   assert.match(result.error, /window creation blocked/);
   assert.deepEqual(api.calls.removed, []);
 });
+
+
+test("rolls back windows created before a session restore failure", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("session", ["save", "work"]), api, selectors, sender);
+  const createWindow = api.windows.create;
+  let attempts = 0;
+  api.windows.create = async (options) => {
+    attempts += 1;
+    if (attempts === 2) throw new Error("second window failed");
+    return createWindow(options);
+  };
+  const result = await handleMessage(request("session", ["load", "work"]), api, selectors, sender);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /Session restore failed after creating 1 window/);
+  assert.deepEqual(api.calls.windowRemoves, [20]);
+});
+
+test("rolls back tabs appended before a session append failure", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("session", ["save", "work"]), api, selectors, sender);
+  const createTab = api.tabs.create;
+  let attempts = 0;
+  api.tabs.create = async (properties) => {
+    attempts += 1;
+    if (attempts === 2) throw new Error("tab creation failed");
+    return createTab(properties);
+  };
+  const result = await handleMessage(request("session", ["append", "work"]), api, selectors, sender);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /Session append failed after creating 1 tab/);
+  assert.deepEqual(api.calls.removed, [50]);
+});
+
+test("rejects invalid session command syntax and missing focused append target", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const missingAction = await handleMessage(request("session"), api, selectors, sender);
+  assert.match(missingAction.error, /Session syntax/);
+  await handleMessage(request("session", ["save", "work"]), api, selectors, sender);
+  const originalGetAll = api.windows.getAll;
+  api.windows.getAll = async () => (await originalGetAll()).map((window) => ({
+    ...window,
+    focused: false,
+  }));
+  const append = await handleMessage(request("session", ["append", "work"]), api, selectors, sender);
+  assert.match(append.error, /There is no focused normal browser window/);
+});
