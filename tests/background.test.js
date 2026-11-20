@@ -1,9 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const {
-  handleMessage,
-  validateCommandRequest,
-} = require("../src/background/background.js");
+const { handleMessage, validateCommandRequest } = require("../src/background/background.js");
 const selectors = require("../src/shared/selectors.js");
 
 const windows = [
@@ -46,7 +43,10 @@ test("validates command message shape and rejects unexpected data", () => {
   assert.match(validateCommandRequest({ type: "OTHER" }), /message type/);
   assert.match(validateCommandRequest(request("tabs").command), /message type/);
   assert.match(
-    validateCommandRequest({ ...request("tabs"), command: { ...request("tabs").command, extra: true } }),
+    validateCommandRequest({
+      ...request("tabs"),
+      command: { ...request("tabs").command, extra: true },
+    }),
     /Unexpected command properties/,
   );
   assert.match(
@@ -59,7 +59,10 @@ test("lists tabs across normal windows and excludes private windows", async () =
   const result = await handleMessage(request("tabs"), browserApi(), selectors);
   assert.equal(result.ok, true);
   assert.equal(result.output.length, 4);
-  assert.equal(result.output.some((line) => line.includes("private.example")), false);
+  assert.equal(
+    result.output.some((line) => line.includes("private.example")),
+    false,
+  );
 });
 
 test("runs count, current, domains, and duplicate read commands", async () => {
@@ -72,7 +75,10 @@ test("runs count, current, domains, and duplicate read commands", async () => {
   assert.match(current.output[0], /Twitch/);
   assert.deepEqual(domains.output, ["example.com", "twitch.tv", "youtube.com"]);
   assert.match(duplicates.output[0], /Duplicate group/);
-  assert.equal(duplicates.output.some((line) => line.includes("private.example")), false);
+  assert.equal(
+    duplicates.output.some((line) => line.includes("private.example")),
+    false,
+  );
 });
 
 test("rejects commands that are not part of the read-only command surface", async () => {

@@ -25,27 +25,45 @@ test("matches exact hosts and subdomains without suffix spoofing", () => {
 
 test("extracts hostnames and normalizes URL fragments for duplicate checks", () => {
   assert.equal(hostnameOf(tabs[0]), "www.twitch.tv");
-  assert.equal(
-    canonicalUrl(tabs[2]),
-    canonicalUrl(tabs[3]),
-  );
+  assert.equal(canonicalUrl(tabs[2]), canonicalUrl(tabs[3]));
   assert.deepEqual([...duplicateTabIds(tabs)], [3, 4]);
 });
 
 test("supports service aliases and common tab-state selectors", () => {
-  assert.deepEqual(selectTabs(tabs, "twitch").map((tab) => tab.id), [1, 2]);
-  assert.deepEqual(selectTabs(tabs, "youtube").map((tab) => tab.id), [3, 4]);
-  assert.deepEqual(selectTabs(tabs, "audible").map((tab) => tab.id), [6]);
-  assert.deepEqual(selectTabs(tabs, "pinned").map((tab) => tab.id), []);
-  assert.deepEqual(selectTabs(tabs, "audible").map((tab) => tab.id), [6]);
-  assert.deepEqual(selectTabs(tabs, "duplicates").map((tab) => tab.id), [3, 4]);
+  assert.deepEqual(
+    selectTabs(tabs, "twitch").map((tab) => tab.id),
+    [1, 2],
+  );
+  assert.deepEqual(
+    selectTabs(tabs, "youtube").map((tab) => tab.id),
+    [3, 4],
+  );
+  assert.deepEqual(
+    selectTabs(tabs, "audible").map((tab) => tab.id),
+    [6],
+  );
+  assert.deepEqual(
+    selectTabs(tabs, "pinned").map((tab) => tab.id),
+    [],
+  );
+  assert.deepEqual(
+    selectTabs(tabs, "duplicates").map((tab) => tab.id),
+    [3, 4],
+  );
 });
 
 test("supports domain and explicit window selectors", () => {
-  assert.deepEqual(selectTabs(tabs, "domain:twitch.tv").map((tab) => tab.id), [1, 2]);
   assert.deepEqual(
-    selectTabs(tabs, "window:2", { windows: [{ id: 10, index: 1 }, { id: 11, index: 2 }] })
-      .map((tab) => tab.id),
+    selectTabs(tabs, "domain:twitch.tv").map((tab) => tab.id),
+    [1, 2],
+  );
+  assert.deepEqual(
+    selectTabs(tabs, "window:2", {
+      windows: [
+        { id: 10, index: 1 },
+        { id: 11, index: 2 },
+      ],
+    }).map((tab) => tab.id),
     [3, 4, 5],
   );
 });

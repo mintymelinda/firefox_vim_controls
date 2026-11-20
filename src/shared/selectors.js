@@ -17,12 +17,17 @@
   }
 
   function hostMatches(hostname, domain) {
-    const normalizedHost = String(hostname || "").toLowerCase().replace(/\.$/, "");
-    const normalizedDomain = String(domain || "").toLowerCase().replace(/^\*\./, "").replace(/\.$/, "");
+    const normalizedHost = String(hostname || "")
+      .toLowerCase()
+      .replace(/\.$/, "");
+    const normalizedDomain = String(domain || "")
+      .toLowerCase()
+      .replace(/^\*\./, "")
+      .replace(/\.$/, "");
     return Boolean(
       normalizedHost &&
-      normalizedDomain &&
-      (normalizedHost === normalizedDomain || normalizedHost.endsWith(`.${normalizedDomain}`)),
+        normalizedDomain &&
+        (normalizedHost === normalizedDomain || normalizedHost.endsWith(`.${normalizedDomain}`)),
     );
   }
 
@@ -46,13 +51,13 @@
       group.push(tab.id);
       groups.set(key, group);
     }
-    return new Set(
-      [...groups.values()].filter((ids) => ids.length > 1).flat(),
-    );
+    return new Set([...groups.values()].filter((ids) => ids.length > 1).flat());
   }
 
   function selectTabs(tabs, selector = "all", options = {}) {
-    const value = String(selector || "all").trim().toLowerCase();
+    const value = String(selector || "all")
+      .trim()
+      .toLowerCase();
     if (!value || value === "all") return [...tabs];
     if (value === "active") {
       return tabs.filter((tab) => tab.active && tab.windowId === options.currentWindowId);

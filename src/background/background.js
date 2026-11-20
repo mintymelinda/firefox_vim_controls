@@ -38,7 +38,9 @@
   }
 
   function tabSummary(tab, windowIndex) {
-    const title = String(tab.title || tab.url || "Untitled tab").replace(/\s+/g, " ").trim();
+    const title = String(tab.title || tab.url || "Untitled tab")
+      .replace(/\s+/g, " ")
+      .trim();
     const url = String(tab.url || "");
     const flags = [tab.pinned ? "pinned" : "", tab.audible ? "audible" : ""].filter(Boolean);
     const metadata = flags.length ? ` [${flags.join(", ")}]` : "";
@@ -115,7 +117,11 @@
     return { ok: false, error: `Command is not available: ${command.name}` };
   }
 
-  async function handleMessage(message, browserApi = root.browser, selectors = root.VimTabSelectors) {
+  async function handleMessage(
+    message,
+    browserApi = root.browser,
+    selectors = root.VimTabSelectors,
+  ) {
     const validationError = validateCommandRequest(message);
     if (validationError) return { ok: false, error: validationError };
     const { command } = message;
@@ -136,7 +142,12 @@
     root.browser.runtime.onMessage.addListener((message) => handleMessage(message));
   }
 
-  const api = { executeReadCommand, getNormalWindowSnapshot, handleMessage, validateCommandRequest };
+  const api = {
+    executeReadCommand,
+    getNormalWindowSnapshot,
+    handleMessage,
+    validateCommandRequest,
+  };
   root.VimBackgroundCommands = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(globalThis);
