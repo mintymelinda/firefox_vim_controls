@@ -41,10 +41,13 @@
   async function persistState() {
     if (privateContext) return;
     try {
-      await browser.runtime.sendMessage({
+      const response = await browser.runtime.sendMessage({
         type: "VIM_STATE_SET",
         state: { history, aliases, preferences },
       });
+      if (!response?.ok) {
+        appendOutput(response?.error || "Could not save command state.", "error");
+      }
     } catch {
       appendOutput("Could not save command state in extension storage.", "error");
     }
