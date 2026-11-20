@@ -720,9 +720,13 @@
   function commandOptions(command) {
     const confirmed = command.args.includes("--confirm");
     const selectorArgs = command.args.filter((arg) => arg !== "--confirm");
+    const selector =
+      selectorArgs[0] === "domain" && selectorArgs.length === 2
+        ? `domain:${selectorArgs[1]}`
+        : selectorArgs.join(" ");
     return {
       confirmed,
-      selector: selectorArgs.length ? selectorArgs.join(" ") : "all",
+      selector: selector || "all",
     };
   }
 
