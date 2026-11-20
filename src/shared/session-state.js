@@ -55,7 +55,7 @@
         if (!url) continue;
         tabs.push({
           url,
-          title: typeof tab.title === "string" ? tab.title.slice(0, LIMITS.titleLength) : "",
+          title: typeof tab?.title === "string" ? tab.title.slice(0, LIMITS.titleLength) : "",
           pinned: Boolean(tab.pinned),
           active: Boolean(tab.active),
         });
