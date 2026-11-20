@@ -86,3 +86,41 @@ test("selects tabs currently loading", () => {
     [1, 3],
   );
 });
+
+
+test("selects other, left, and right relative to the active tab in its window", () => {
+  const relativeTabs = [
+    { id: 1, windowId: 10, index: 1, active: true },
+    { id: 2, windowId: 10, index: 0 },
+    { id: 3, windowId: 10, index: 2 },
+    { id: 4, windowId: 11, index: 0 },
+  ];
+  assert.deepEqual(
+    selectTabs(relativeTabs, "other", { currentWindowId: 10 }).map((tab) => tab.id),
+    [2, 3],
+  );
+  assert.deepEqual(
+    selectTabs(relativeTabs, "left", { currentWindowId: 10 }).map((tab) => tab.id),
+    [2],
+  );
+  assert.deepEqual(
+    selectTabs(relativeTabs, "right", { currentWindowId: 10 }).map((tab) => tab.id),
+    [3],
+  );
+  assert.throws(
+    () => selectTabs(relativeTabs, "left"),
+    /Relative selectors require a focused normal browser window/,
+  );
+});
+
+test("selects blank and discarded tabs without treating ordinary pages as empty", () => {
+  const cleanupTabs = [
+    { id: 1, url: "about:blank" },
+    { id: 2, url: "about:newtab" },
+    { id: 3, url: "" },
+    { id: 4, url: "https://example.com", discarded: true },
+    { id: 5, url: "https://example.net", discarded: false },
+  ];
+  assert.deepEqual(selectTabs(cleanupTabs, "empty").map((tab) => tab.id), [1, 2, 3]);
+  assert.deepEqual(selectTabs(cleanupTabs, "discarded").map((tab) => tab.id), [4]);
+});
