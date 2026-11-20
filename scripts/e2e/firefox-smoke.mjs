@@ -81,8 +81,7 @@ try {
 
   await request("POST", `/session/${sessionId}/url`, { url: fixtureUrl });
   await waitFor("fixture page title", async () => {
-    return (await request("GET", `/session/${sessionId}/title`)) ===
-      "Firefox Vim Controls fixture";
+    return (await request("GET", `/session/${sessionId}/title`)) === "Firefox Vim Controls fixture";
   });
 
   const body = await findElement(sessionId, "body");
@@ -101,8 +100,9 @@ try {
   assert.equal(focused, true, "opening the prompt should move focus into its input");
 
   await sendKeys(sessionId, promptInput, "\uE00C");
-  await waitFor("prompt dismissal with Escape", async () =>
-    (await findElement(sessionId, "#fvc-command-panel")) === null,
+  await waitFor(
+    "prompt dismissal with Escape",
+    async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
   );
 
   const editable = await findElement(sessionId, "#fixture-input");
@@ -134,8 +134,9 @@ try {
   assert.match(output, /Firefox Vim Controls fixture/);
 
   await sendKeys(sessionId, commandInput, "\uE00C");
-  await waitFor("prompt close after command", async () =>
-    (await findElement(sessionId, "#fvc-command-panel")) === null,
+  await waitFor(
+    "prompt close after command",
+    async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
   );
 
   await request("POST", `/session/${sessionId}/url`, { url: "about:addons" });
@@ -146,7 +147,9 @@ try {
     "restricted Firefox pages must not receive the content-script prompt",
   );
 
-  console.log("Firefox browser smoke tests passed (activation, editable safety, focus, command round-trip, restricted page).");
+  console.log(
+    "Firefox browser smoke tests passed (activation, editable safety, focus, command round-trip, restricted page).",
+  );
 } finally {
   if (sessionId) {
     await request("DELETE", `/session/${sessionId}`).catch((error) => {
