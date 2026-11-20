@@ -214,13 +214,20 @@ try {
   async function runCommand(command, expectedOutput) {
     await sendKeys(sessionId, commandInput, command);
     await sendKeys(sessionId, commandInput, "\uE007");
-    return waitFor(`command response for ${command}`, async () => {
+    const output = await waitFor(`command response for ${command}`, async () => {
       const text = await executeScript(
         sessionId,
         "return document.querySelector('#fvc-command-panel .fvc-output')?.lastElementChild?.textContent || ''",
       );
       return text.includes(expectedOutput) ? text : null;
     });
+    await waitFor(`command input reset after ${command}`, async () =>
+      executeScript(
+        sessionId,
+        "return document.querySelector('#fvc-command-panel input').value === ''",
+      ),
+    );
+    return output;
   }
 
   await sendKeys(sessionId, commandInput, ":tabs");
