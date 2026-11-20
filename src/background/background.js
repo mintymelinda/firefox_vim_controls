@@ -169,21 +169,25 @@
       fvcCommandPreferences: preferences,
     });
     if (browserApi.tabs?.query && browserApi.tabs?.sendMessage && sender.tab?.id !== undefined) {
-      const tabs = await browserApi.tabs.query({});
-      await Promise.all(
-        tabs
-          .filter((tab) => !tab.incognito && tab.id !== sender.tab.id)
-          .map(async (tab) => {
-            try {
-              await browserApi.tabs.sendMessage(tab.id, {
-                type: "VIM_STATE_UPDATED",
-                state: updatedState,
-              });
-            } catch {
-              // Tabs without the content script can be ignored.
-            }
-          }),
-      );
+      try {
+        const tabs = await browserApi.tabs.query({});
+        await Promise.all(
+          tabs
+            .filter((tab) => !tab.incognito && tab.id !== sender.tab.id)
+            .map(async (tab) => {
+              try {
+                await browserApi.tabs.sendMessage(tab.id, {
+                  type: "VIM_STATE_UPDATED",
+                  state: updatedState,
+                });
+              } catch {
+                // Tabs without the content script can be ignored.
+              }
+            }),
+        );
+      } catch {
+        // Persisted state remains available when each tab next loads the prompt.
+      }
     }
     return { ok: true, persisted: true };
   }
