@@ -153,22 +153,35 @@
     if (!normalized) throw new Error("The saved snapshot contains no restorable tabs.");
     const createdTabs = [];
     let activeIndex = -1;
-    for (const [windowIndex, savedWindow] of normalized.windows.entries()) {
-      for (const savedTab of savedWindow.tabs) {
-        const createdTab = await browserApi.tabs.create({
-          windowId: focusedWindow.id,
-          url: savedTab.url,
-          active: false,
-          pinned: savedTab.pinned,
-        });
-        createdTabs.push(createdTab);
-        if (savedTab.active && (savedWindow.focused || activeIndex < 0)) {
-          activeIndex = createdTabs.length - 1;
+    try {
+      for (const savedWindow of normalized.windows) {
+        for (const savedTab of savedWindow.tabs) {
+          const createdTab = await browserApi.tabs.create({
+            windowId: focusedWindow.id,
+            url: savedTab.url,
+            active: false,
+            pinned: savedTab.pinned,
+          });
+          createdTabs.push(createdTab);
+          if (savedTab.active && (savedWindow.focused || activeIndex < 0)) {
+            activeIndex = createdTabs.length - 1;
+          }
         }
       }
-    }
-    if (activeIndex >= 0 && createdTabs[activeIndex]) {
-      await browserApi.tabs.update(createdTabs[activeIndex].id, { active: true });
+      if (activeIndex >= 0 && createdTabs[activeIndex]) {
+        await browserApi.tabs.update(createdTabs[activeIndex].id, { active: true });
+      }
+    } catch (error) {
+      if (createdTabs.length && browserApi.tabs.remove) {
+        try {
+          await browserApi.tabs.remove(createdTabs.map((tab) => tab.id));
+        } catch {
+          // Preserve the original append failure if cleanup is unavailable.
+        }
+      }
+      throw new Error(
+        `Session append failed after creating ${createdTabs.length} tab(s): ${error instanceof Error ? error.message : "browser API failure"}`,
+      );
     }
     return createdTabs.length;
   }
