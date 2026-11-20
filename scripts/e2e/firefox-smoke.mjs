@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { execFileSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "../..");
 const project = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
