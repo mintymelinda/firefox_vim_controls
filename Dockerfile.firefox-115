@@ -15,9 +15,9 @@ RUN set -eux; \
     test -n "$checksum"; \
     printf '%s  %s\n' "$checksum" "/tmp/${FIREFOX_ARCHIVE}" | sha256sum --check -; \
     tar -xjf "/tmp/${FIREFOX_ARCHIVE}" -C /opt; \
-    ldd /opt/firefox/firefox | tee /tmp/firefox-ldd; \
+    ldd /opt/firefox/libxul.so | tee /tmp/firefox-ldd; \
     ! grep -q "not found" /tmp/firefox-ldd; \
-    /opt/firefox/firefox --version; \
+    su -s /bin/sh seluser -c "HOME=/home/seluser /opt/firefox/firefox --version"; \
     rm -f "/tmp/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS; \
     apt-get purge -y --auto-remove bzip2; \
     rm -rf /var/lib/apt/lists/*
