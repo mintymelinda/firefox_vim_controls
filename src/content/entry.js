@@ -21,36 +21,33 @@
 
   const commandNames = globalThis.VimCommandRegistry.names();
   const privateContext = Boolean(globalThis.browser?.extension?.inIncognitoContext);
-  const availableStorage = globalThis.browser?.storage?.local;
-  const storage = globalThis.VimCommandState.canPersistState(privateContext, availableStorage)
-    ? availableStorage
-    : null;
 
   const stateReady = (async () => {
-    if (!storage) return;
+    if (privateContext) return;
     try {
-      const stored = await storage.get(STORAGE_KEYS);
-      preferences = globalThis.VimCommandState.normalizePreferences(stored.fvcCommandPreferences);
+      const response = await browser.runtime.sendMessage({ type: "VIM_STATE_GET" });
+      if (!response?.ok) return;
+      const stored = response.state || {};
+      preferences = globalThis.VimCommandState.normalizePreferences(stored.preferences);
       history.push(
         ...globalThis.VimCommandState.normalizeHistory(
-          stored.fvcCommandHistory,
+          stored.history,
           preferences.historyLimit,
         ),
       );
-      aliases = globalThis.VimCommandState.normalizeAliases(stored.fvcCommandAliases, commandNames);
+      aliases = globalThis.VimCommandState.normalizeAliases(stored.aliases, commandNames);
       historyIndex = history.length;
     } catch {
-      // The prompt remains usable if extension storage is unavailable.
+      // The prompt remains usable if background storage is unavailable.
     }
   })();
 
   async function persistState() {
-    if (!storage) return;
+    if (privateContext) return;
     try {
-      await storage.set({
-        fvcCommandHistory: history,
-        fvcCommandAliases: aliases,
-        fvcCommandPreferences: preferences,
+      await browser.runtime.sendMessage({
+        type: "VIM_STATE_SET",
+        state: { history, aliases, preferences },
       });
     } catch {
       appendOutput("Could not save command state in extension storage.", "error");
