@@ -770,3 +770,170 @@ test("rejects invalid session command syntax and missing focused append target",
   );
   assert.match(append.error, /There is no focused normal browser window/);
 });
+
+
+test("persists and validates macros through the background message boundary", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { id: 1, incognito: false } };
+  const commands = [
+    { name: "tabs", args: ["twitch"], destination: [] },
+    { name: "count", args: ["all"], destination: [] },
+  ];
+  const saved = await handleMessage(
+    { type: "VIM_MACRO_SET", name: "stream", commands },
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(saved.ok, true);
+  assert.deepEqual(api.storageData.fvcCommandMacros.stream.commands, commands);
+
+  const loaded = await handleMessage(
+    { type: "VIM_MACRO_GET", name: "stream" },
+    api,
+    selectors,
+    sender,
+  );
+  assert.deepEqual(loaded.commands, commands);
+
+  const listed = await handleMessage({ type: "VIM_MACRO_GET" }, api, selectors, sender);
+  assert.deepEqual(listed.macros, [{ name: "stream", commands: 2 }]);
+
+  const invalid = await handleMessage(
+    {
+      type: "VIM_MACRO_SET",
+      name: "unsafe",
+      commands: [{ name: "eval", args: ["alert(1)"], destination: [] }],
+    },
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(invalid.ok, false);
+  assert.match(invalid.error, /invalid or unsupported/);
+
+  const deleted = await handleMessage(
+    { type: "VIM_MACRO_DELETE", name: "stream" },
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(deleted.ok, true);
+  assert.deepEqual(Object.keys(api.storageData.fvcCommandMacros), []);
+});
+
+test("macro storage is never accessed from private tabs", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { id: 9, incognito: true } };
+  const beforeGets = api.calls.storageGets.length;
+  const beforeSets = api.calls.storageSets.length;
+  const result = await handleMessage(
+    { type: "VIM_MACRO_GET" },
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.error, /disabled in private browsing/);
+  assert.equal(api.calls.storageGets.length, beforeGets);
+  assert.equal(api.calls.storageSets.length, beforeSets);
+});
+
+test("undo restores tabs moved into a new window", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const moved = await handleMessage(
+    request("move", ["twitch"], ["new_window"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(moved.ok, true);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
+    [2],
+  );
+
+  const undone = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(undone.ok, true);
+  assert.match(undone.output[0], /Undid move/);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
+    [1, 2],
+  );
+});
+
+test("undo restores previous pinned and muted state", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("pin", ["twitch"]), api, selectors, sender);
+  const pinUndo = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(pinUndo.ok, true);
+  assert.ok(api.calls.updated.some((call) => call.id === 1 && call.properties.pinned === false));
+
+  await handleMessage(request("mute", ["twitch"]), api, selectors, sender);
+  const muteUndo = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(muteUndo.ok, true);
+  assert.ok(api.calls.updated.some((call) => call.id === 1 && call.properties.muted === false));
+});
+
+test("undo restores original tab ordering after sort or reverse", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("reverse", ["all"]), api, selectors, sender);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
+    [2, 1],
+  );
+  const undone = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(undone.ok, true);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
+    [1, 2],
+  );
+});
+
+test("undo restores tabs to source windows after merge", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("merge"), api, selectors, sender);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 11).tabs,
+    [],
+  );
+  const undone = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(undone.ok, true);
+  assert.deepEqual(
+    (await api.windows.getAll()).find((window) => window.id === 11).tabs.map((tab) => tab.id),
+    [3, 4],
+  );
+});
+
+test("irreversible commands clear undo history and private undo is blocked", async () => {
+  clearUndoStack();
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("pin", ["twitch"]), api, selectors, sender);
+  await handleMessage(request("tabs", ["all"]), api, selectors, sender);
+  const stillAvailable = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(stillAvailable.ok, true);
+
+  await handleMessage(request("pin", ["twitch"]), api, selectors, sender);
+  await handleMessage(request("reload", ["active"]), api, selectors, sender);
+  const cleared = await handleMessage(request("undo"), api, selectors, sender);
+  assert.equal(cleared.ok, false);
+  assert.match(cleared.error, /There is no supported command to undo/);
+
+  const privateUndo = await handleMessage(
+    request("undo"),
+    api,
+    selectors,
+    { tab: { incognito: true } },
+  );
+  assert.equal(privateUndo.ok, false);
+  assert.match(privateUndo.error, /private browsing/);
+});
