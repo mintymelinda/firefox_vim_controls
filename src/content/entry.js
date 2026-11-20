@@ -146,8 +146,10 @@
   function completeInput() {
     const value = input.value;
     const tokenMatch = value.match(/\S*$/);
-    const token = tokenMatch ? tokenMatch[0] : "";
-    const prefix = value.slice(0, value.length - token.length);
+    const rawToken = tokenMatch ? tokenMatch[0] : "";
+    const token = rawToken.replace(/^:/, "");
+    const prefix =
+      value.slice(0, value.length - rawToken.length) + (rawToken.startsWith(":") ? ":" : "");
     const matches = globalThis.VimCommandState.completionCandidates(value, commandNames, aliases);
     if (matches.length === 1) {
       input.value = `${prefix}${matches[0]} `;
@@ -402,7 +404,7 @@
         commands.push(...response.commands);
       }
 
-      await globalThis.VimCommandChain.execute(commands, async (parsedCommand) => {
+      await globalThis.VimCommandChain.executeChain(commands, async (parsedCommand) => {
         const command = globalThis.VimCommandState.expandAlias(parsedCommand, aliases);
         const definition = globalThis.VimCommandRegistry.get(command.name);
         if (!definition || definition.status !== "implemented") {
