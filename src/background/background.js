@@ -163,7 +163,6 @@
     throw new Error("Move destination must be new_window, current_window, or window 2.");
   }
 
-
   function windowSummary(window) {
     const active = window.tabs.find((tab) => tab.active);
     const label = active?.title || active?.url || "No active tab";
