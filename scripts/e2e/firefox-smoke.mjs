@@ -101,9 +101,16 @@ try {
     return (await request("GET", `/session/${sessionId}/title`)) === "Firefox Vim Controls fixture";
   });
 
+  const body = await findElement(sessionId, "body");
+  assert.ok(body, "fixture body should be available");
   const trigger = await findElement(sessionId, "#fixture-button");
   assert.ok(trigger, "fixture should expose a focusable trigger button");
-  await request("POST", `/session/${sessionId}/element/${trigger}/click`);
+  await sendKeys(sessionId, body, "\uE004\uE004");
+  assert.equal(
+    await executeScript(sessionId, "return document.activeElement.id"),
+    "fixture-button",
+    "keyboard Tab navigation should reach the fixture button",
+  );
   await sendKeys(sessionId, trigger, ":");
   assert.ok(
     await waitFor("prompt activation on an ordinary page", () =>
@@ -191,8 +198,6 @@ try {
   );
 
   await sendKeys(sessionId, editable, "\uE00C");
-  const body = await findElement(sessionId, "body");
-  assert.ok(body, "fixture body should remain available after leaving the editable control");
   await sendKeys(sessionId, body, ":");
   assert.ok(
     await waitFor("Escape-then-colon activation", () =>
