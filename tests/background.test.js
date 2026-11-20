@@ -1065,6 +1065,16 @@ test("accepts domain shorthand for close and move selectors", async () => {
   );
   assert.equal(moved.ok, true);
   assert.ok(api.calls.windowCreates.some((call) => call.tabId === 2));
+
+  const closeApi = createBrowserApi();
+  const closed = await handleMessage(
+    request("close", ["domain", "example.com"]),
+    closeApi,
+    selectors,
+    sender,
+  );
+  assert.equal(closed.ok, true);
+  assert.ok(closeApi.calls.removed.includes(2));
 });
 
 test("closes blank and discarded tabs through their selectors", async () => {
