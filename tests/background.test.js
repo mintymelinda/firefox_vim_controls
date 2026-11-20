@@ -965,7 +965,6 @@ test("confirmation previews stop destructive actions without clearing undo", asy
   assert.ok(api.calls.updated.some((call) => call.id === 1 && call.properties.pinned === false));
 });
 
-
 test("lists audible and loading tabs from normal windows only", async () => {
   const api = createBrowserApi();
   api.windows.getAll()[1].tabs[0].status = "loading";
