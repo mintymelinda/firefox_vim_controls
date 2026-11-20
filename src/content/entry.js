@@ -145,10 +145,11 @@
 
   function completeInput() {
     const value = input.value;
-    const tokenMatch = value.match(/\\S*$/);
+    const tokenMatch = value.match(/\S*$/);
     const rawToken = tokenMatch ? tokenMatch[0] : "";
     const token = rawToken.replace(/^:/, "");
-    const prefix = value.slice(0, value.length - rawToken.length) + (rawToken.startsWith(":") ? ":" : "");
+    const prefix =
+      value.slice(0, value.length - rawToken.length) + (rawToken.startsWith(":") ? ":" : "");
     const matches = globalThis.VimCommandState.completionCandidates(value, commandNames, aliases);
     if (matches.length === 1) {
       input.value = `${prefix}${matches[0]} `;
