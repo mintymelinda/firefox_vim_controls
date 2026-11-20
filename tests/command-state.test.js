@@ -116,7 +116,6 @@ test("completes command names, aliases, selectors, destinations, and preference 
   );
 });
 
-
 test("never persists command state from private browsing contexts", () => {
   const storage = { get: async () => ({}), set: async () => {} };
   assert.equal(state.canPersistState(true, storage), false);
