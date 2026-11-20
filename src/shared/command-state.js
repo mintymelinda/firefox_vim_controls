@@ -17,6 +17,7 @@
     "history",
     "clear_history",
     "set",
+    "macro",
   ]);
   const SELECTOR_COMPLETIONS = [
     "all",
