@@ -1346,14 +1346,16 @@
     if (typeof browserApi.extension?.isAllowedIncognitoAccess !== "function") {
       return {
         ok: false,
-        error: "Firefox did not expose private-window permission status; refusing to create a private window.",
+        error:
+          "Firefox did not expose private-window permission status; refusing to create a private window.",
       };
     }
     const allowed = await browserApi.extension.isAllowedIncognitoAccess();
     if (!allowed) {
       return {
         ok: false,
-        error: "Private windows are disabled for this extension. Enable “Run in Private Windows” in Firefox's Add-ons settings, then try again.",
+        error:
+          "Private windows are disabled for this extension. Enable “Run in Private Windows” in Firefox's Add-ons settings, then try again.",
       };
     }
     const created = await browserApi.windows.create({ incognito: true, focused: true });
