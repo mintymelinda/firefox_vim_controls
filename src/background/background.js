@@ -1,6 +1,4 @@
-"use strict";
-
-(function (root) {
+((root) => {
   const READ_COMMANDS = new Set(["tabs", "count", "current", "domains", "duplicates"]);
 
   function validateCommandRequest(message) {
@@ -67,17 +65,15 @@
     );
     const focusedWindow = windows.find((window) => window.focused);
     const args = command.args;
-    let selected;
 
     if (command.name === "current") {
       const current = focusedWindow?.tabs.find((tab) => tab.active);
       if (!current) return { ok: true, output: ["No active tab in a normal browser window."] };
-      const window = windows.find((item) => item.id === current.windowId);
-      return { ok: true, output: [tabSummary(current, window.index)] };
+      return { ok: true, output: [tabSummary(current, focusedWindow.index)] };
     }
 
     const selector = args.length ? args.join(" ") : "all";
-    selected = selectors.selectTabs(tabs, selector, {
+    const selected = selectors.selectTabs(tabs, selector, {
       currentWindowId: focusedWindow?.id,
       windows,
     });

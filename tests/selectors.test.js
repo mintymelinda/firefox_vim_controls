@@ -24,7 +24,7 @@ test("matches exact hosts and subdomains without suffix spoofing", () => {
 });
 
 test("extracts hostnames and normalizes URL fragments for duplicate checks", () => {
-  assert.equal(hostnameOf(tabs[0]), "www.twitch.tv");
+  assert.equal(hostnameOf(tabs[0]), "twitch.tv");
   assert.equal(canonicalUrl(tabs[2]), canonicalUrl(tabs[3]));
   assert.deepEqual([...duplicateTabIds(tabs)], [3, 4]);
 });

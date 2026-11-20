@@ -1,5 +1,4 @@
-(function (root) {
-  "use strict";
+((root) => {
 
   const HOST_ALIASES = {
     twitch: ["twitch.tv"],
@@ -10,7 +9,7 @@
   function hostnameOf(tab) {
     if (typeof tab?.url !== "string") return "";
     try {
-      return new URL(tab.url).hostname.toLowerCase().replace(/\.$/, "");
+      return new URL(tab.url).hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
     } catch {
       return "";
     }
@@ -35,6 +34,7 @@
     if (typeof tab?.url !== "string") return "";
     try {
       const url = new URL(tab.url);
+      url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
       url.hash = "";
       return url.href;
     } catch {
