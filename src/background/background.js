@@ -940,7 +940,9 @@
         try {
           await browserApi.tabs.move(ids, { windowId: target.id, index: -1 });
           moved += ids.length;
-          movedPositions.push(...captureTabPositions(source.tabs));
+          movedPositions.push(
+            ...captureTabPositions(source.tabs.map((tab) => ({ ...tab, windowId: source.id }))),
+          );
         } catch (error) {
           failures.push(
             `Window ${source.index}: ${error instanceof Error ? error.message : "move failed"}`,
@@ -1034,7 +1036,9 @@
       const affected = windows.filter((window) =>
         selected.some((tab) => tab.windowId === window.id),
       );
-      const positions = captureTabPositions(affected.flatMap((window) => window.tabs));
+      const positions = captureTabPositions(
+        affected.flatMap((window) => window.tabs.map((tab) => ({ ...tab, windowId: window.id }))),
+      );
       let changed = 0;
       try {
         for (const window of affected) {
