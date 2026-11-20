@@ -1288,6 +1288,13 @@
   }
 
   async function executeCommand(command, browserApi, selectors) {
+    if (command.name === "undo") {
+      if (command.args.length || command.destination.length) {
+        return { ok: false, error: "Undo syntax: :undo." };
+      }
+      return undoLastCommand(browserApi);
+    }
+    if (UNDO_BARRIERS.has(command.name)) clearUndoStack();
     const windows = await getNormalWindowSnapshot(browserApi);
     const focusedWindow = windows.find((window) => window.focused);
     if (command.name === "session") {
@@ -1421,7 +1428,7 @@
     const validationError = validateCommandRequest(message);
     if (validationError) return { ok: false, error: validationError };
     const { command } = message;
-    if (sender.tab?.incognito && ["session", "workspace"].includes(command.name)) {
+    if (sender.tab?.incognito && ["session", "workspace", "undo"].includes(command.name)) {
       return {
         ok: false,
         error: "Session and workspace commands are disabled in private browsing.",
@@ -1464,6 +1471,9 @@
     handleStateMessage,
     handleMacroMessage,
     validateMacroMessage,
+    clearUndoStack,
+    undoLastCommand,
+    restoreTabPositions,
     validateStateMessage,
     orderedSelection,
     previewLines,
