@@ -66,7 +66,7 @@ function createBrowserApi() {
     fvcWorkspaces: {},
     fvcCommandMacros: {
       existing: {
-        commands: [{ name: "open", args: ["https://private.example/secret"], destination: [] }],
+        commands: [{ name: "tabs", args: ["all"], destination: [] }],
       },
     },
   };
@@ -205,7 +205,7 @@ test("private macro get, set, and delete are all rejected before storage access"
     {
       type: "VIM_MACRO_SET",
       name: "private-attempt",
-      commands: [{ name: "tabs", args: ["all"], destination: [] }],
+      commands: [{ name: "open", args: ["https://private.example/secret"], destination: [] }],
     },
     { type: "VIM_MACRO_DELETE", name: "existing" },
   ];
@@ -220,6 +220,7 @@ test("private macro get, set, and delete are all rejected before storage access"
   assert.deepEqual(api.calls.sets, []);
   assert.equal(api.calls.windowGets, 0);
   assert.deepEqual(api.storageData, before);
+  assert.doesNotMatch(JSON.stringify(api.storageData.fvcCommandMacros), /private\\.example/);
 });
 
 test("private session, workspace, and undo commands are rejected without storage or browser access", async () => {
