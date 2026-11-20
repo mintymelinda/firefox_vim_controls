@@ -110,7 +110,6 @@ test("bounds snapshots by window and tab counts", () => {
   );
 });
 
-
 test("enforces an aggregate serialized storage budget", () => {
   const largeUrl = `https://example.com/${"a".repeat(4000)}`;
   const tabs = Array.from({ length: 100 }, () => ({
@@ -121,13 +120,7 @@ test("enforces an aggregate serialized storage budget", () => {
     windows: [{ tabs }, { tabs }],
   };
   const sessions = Object.fromEntries(
-    Array.from({ length: 10 }, (_, index) => [
-      `session${index}`,
-      { snapshot: largeSnapshot },
-    ]),
+    Array.from({ length: 10 }, (_, index) => [`session${index}`, { snapshot: largeSnapshot }]),
   );
-  assert.throws(
-    () => state.assertStorageBudget(sessions, {}),
-    /8 MiB local storage budget/,
-  );
+  assert.throws(() => state.assertStorageBudget(sessions, {}), /8 MiB local storage budget/);
 });
