@@ -37,7 +37,15 @@ function makeWindows() {
       id: 12,
       focused: false,
       incognito: true,
-      tabs: [{ id: 5, url: "https://private.example", title: "Private", audible: true, status: "loading" }],
+      tabs: [
+        {
+          id: 5,
+          url: "https://private.example",
+          title: "Private",
+          audible: true,
+          status: "loading",
+        },
+      ],
     },
   ];
 }
@@ -967,13 +975,19 @@ test("lists audible and loading tabs from normal windows only", async () => {
   assert.equal(audible.ok, true);
   assert.equal(audible.output.length, 1);
   assert.match(audible.output[0], /#2/);
-  assert.equal(audible.output.some((line) => line.includes("#5")), false);
+  assert.equal(
+    audible.output.some((line) => line.includes("#5")),
+    false,
+  );
 
   const loading = await handleMessage(request("loading"), api, selectors, sender);
   assert.equal(loading.ok, true);
   assert.equal(loading.output.length, 1);
   assert.match(loading.output[0], /#3/);
-  assert.equal(loading.output.some((line) => line.includes("#5")), false);
+  assert.equal(
+    loading.output.some((line) => line.includes("#5")),
+    false,
+  );
 
   const scoped = await handleMessage(request("loading", ["youtube"]), api, selectors, sender);
   assert.equal(scoped.output.length, 1);
