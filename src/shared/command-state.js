@@ -63,7 +63,7 @@
   function normalizeAliases(value, commandNames = []) {
     const aliases = Object.create(null);
     if (!value || typeof value !== "object" || Array.isArray(value)) return aliases;
-    for (const [name, alias] of Object.entries(value)) {
+    for (const [name, alias] of Object.entries(value).slice(0, 100)) {
       const command = alias?.command;
       if (
         !isValidAliasName(name, commandNames) ||
