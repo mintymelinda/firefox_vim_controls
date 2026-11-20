@@ -66,7 +66,7 @@ function createBrowserApi() {
     fvcWorkspaces: {},
     fvcCommandMacros: {
       existing: {
-        commands: [{ name: "tabs", args: ["all"], destination: [] }],
+        commands: [{ name: "open", args: ["https://private.example/secret"], destination: [] }],
       },
     },
   };
@@ -218,6 +218,7 @@ test("private macro get, set, and delete are all rejected before storage access"
 
   assert.deepEqual(api.calls.gets, []);
   assert.deepEqual(api.calls.sets, []);
+  assert.equal(api.calls.windowGets, 0);
   assert.deepEqual(api.storageData, before);
 });
 
