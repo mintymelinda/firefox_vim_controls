@@ -16,7 +16,7 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. Do
 
 ## Current status
 
-Phase 1 is in progress. The initial release implements command-mode activation, prompt UI, command parsing, help/version, command history, and basic completion. Browser-wide tab operations are planned for Phase 2.
+Phase 1 command mode is implemented. Phase 2 read-only tab inspection is implemented on the active development branch; tab-changing commands are being added next.
 
 ## Keyboard behaviour
 
@@ -31,6 +31,12 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:help` — show implemented commands and planned command examples.
 - `:version` — show extension version.
 - `:clear` — clear the prompt output.
-- `:close` — recognized by the parser but not executed until Phase 2.
+- `:tabs [selector]` — list matching tabs.
+- `:count [selector]` — count matching tabs.
+- `:current` — show the active tab in the focused normal window.
+- `:domains [selector]` — list hostnames represented by matching tabs.
+- `:duplicates` — list tabs sharing the same URL (ignoring URL fragments).
+
+Selectors include `all`, `active`, `pinned`, `audible`, `duplicates`, `twitch`, `youtube`, `audible`, `domain:example.com`, and `window:2`. Domain matching includes subdomains but does not match lookalike suffixes such as `twitch.tv.evil.example`. Private windows are excluded from these commands.
 
 See [the complete plan](https://github.com/mintymelinda/firefox_vim_controls/issues/1) and [Phase 1–3 checklist](https://github.com/mintymelinda/firefox_vim_controls/issues/2).

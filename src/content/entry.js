@@ -81,7 +81,7 @@
     }
   }
 
-  function runCommand() {
+  async function runCommand() {
     const raw = input.value.trim();
     if (!raw) return;
     try {
@@ -117,11 +117,25 @@
             .map((item) => `:${item.name}`);
           appendOutput(`Available: ${available.join(", ")}`);
           appendOutput(`Planned: ${planned.join(", ")}`);
-          appendOutput("Examples: :move twitch, new_window · :close duplicates · :sort domain");
+          appendOutput("Examples: :tabs twitch · :count audible · :duplicates");
         } else if (command.name === "version") {
           appendOutput("Firefox Vim Controls v0.1.0");
         } else if (command.name === "clear") {
           output.replaceChildren();
+        } else {
+          const response = await browser.runtime.sendMessage({
+            type: "VIM_COMMAND_REQUEST",
+            command: {
+              name: command.name,
+              args: command.args,
+              destination: command.destination,
+            },
+          });
+          if (!response?.ok) {
+            appendOutput(response?.error || "The background command failed.", "error");
+          } else {
+            for (const line of response.output || []) appendOutput(line);
+          }
         }
       }
       input.value = "";
