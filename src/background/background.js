@@ -5,6 +5,11 @@
     "current",
     "domains",
     "duplicates",
+    "audible",
+    "loading",
+    "bookmarks",
+    "downloads",
+    "new_private",
     "close",
     "move",
     "reload",
@@ -44,6 +49,9 @@
     "forward",
     "home",
     "new_window",
+    "new_private",
+    "bookmarks",
+    "downloads",
     "window",
     "fullscreen",
     "minimize",
@@ -1334,6 +1342,46 @@
     };
   }
 
+  async function executePrivateWindowCommand(browserApi) {
+    if (typeof browserApi.extension?.isAllowedIncognitoAccess !== "function") {
+      return {
+        ok: false,
+        error:
+          "Firefox did not expose private-window permission status; refusing to create a private window.",
+      };
+    }
+    const allowed = await browserApi.extension.isAllowedIncognitoAccess();
+    if (!allowed) {
+      return {
+        ok: false,
+        error:
+          "Private windows are disabled for this extension. Enable “Run in Private Windows” in Firefox's Add-ons settings, then try again.",
+      };
+    }
+    const created = await browserApi.windows.create({ incognito: true, focused: true });
+    return {
+      ok: true,
+      output: [`Created private window ${created.id}.`],
+    };
+  }
+
+  async function executeBuiltinPageCommand(name, focusedWindow, browserApi) {
+    const url = name === "bookmarks" ? "about:bookmarks" : "about:downloads";
+    if (focusedWindow) {
+      await browserApi.tabs.create({
+        windowId: focusedWindow.id,
+        url,
+        active: true,
+      });
+    } else {
+      await browserApi.windows.create({ url, focused: true });
+    }
+    return {
+      ok: true,
+      output: [`Opened Firefox's ${name} manager in a new tab.`],
+    };
+  }
+
   async function executeCommand(command, browserApi, selectors) {
     if (command.name === "undo") {
       if (command.args.length || command.destination.length) {
@@ -1344,6 +1392,18 @@
     if (UNDO_BARRIERS.has(command.name)) clearUndoStack();
     const windows = await getNormalWindowSnapshot(browserApi);
     const focusedWindow = windows.find((window) => window.focused);
+    if (command.name === "new_private") {
+      if (command.args.length || command.destination.length) {
+        return { ok: false, error: "Private window syntax: :new_private." };
+      }
+      return executePrivateWindowCommand(browserApi);
+    }
+    if (["bookmarks", "downloads"].includes(command.name)) {
+      if (command.args.length || command.destination.length) {
+        return { ok: false, error: `:${command.name} does not accept arguments.` };
+      }
+      return executeBuiltinPageCommand(command.name, focusedWindow, browserApi);
+    }
     if (command.name === "session") {
       return executeSessionCommand(command, windows, focusedWindow, browserApi);
     }
@@ -1400,6 +1460,29 @@
       windows,
     });
 
+    if (command.name === "audible" || command.name === "loading") {
+      if (command.destination.length) {
+        return { ok: false, error: `:${command.name} does not accept a destination.` };
+      }
+      const statusMatched = selectors.selectTabs(tabs, command.name, {
+        currentWindowId: focusedWindow?.id,
+        windows,
+      });
+      const selectedStatusTabs = command.args.length
+        ? selectors.selectTabs(statusMatched, command.args.join(" "), {
+            currentWindowId: focusedWindow?.id,
+            windows,
+          })
+        : statusMatched;
+      const lines = selectedStatusTabs.map((tab) => {
+        const window = windows.find((item) => item.id === tab.windowId);
+        return tabSummary(tab, window.index);
+      });
+      return {
+        ok: true,
+        output: lines.length ? lines : [`No ${command.name} tabs matched.`],
+      };
+    }
     if (command.name === "count") {
       return { ok: true, output: [`${selected.length} tab(s) matched ${selector}.`] };
     }

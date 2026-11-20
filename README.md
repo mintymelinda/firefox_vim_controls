@@ -16,7 +16,7 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. `n
 
 ## Current status
 
-Phases 1–8 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, and AMO packaging.
+Phases 1–9 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, and read-only/browser utility commands.
 
 See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md).
 
@@ -38,6 +38,8 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:current` — show the active tab in the focused normal window.
 - `:domains [selector]` — list hostnames represented by matching tabs.
 - `:duplicates` — list tabs sharing the same URL (ignoring URL fragments and leading `www.`).
+- `:audible [selector]` — list audible tabs, optionally narrowed by a selector.
+- `:loading [selector]` — list tabs still loading, optionally narrowed by a selector.
 - `:close [selector] [--confirm]` — close matching tabs; closing multiple tabs requires a preview and explicit confirmation.
 - `:move [selector], new_window|current_window|window 2` — move matching tabs to another window.
 - `:reload [selector] [--confirm]` — reload matching tabs; reloading multiple tabs requires confirmation.
@@ -49,6 +51,8 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:back [selector]` / `:forward [selector]` — navigate matching tabs through their history; defaults to the active tab.
 - `:refresh [selector] [--confirm]` — refresh matching tabs; defaults to the active tab and previews multi-tab refreshes.
 - `:home` — navigate the active tab to Firefox's `about:home` page.
+- `:bookmarks` / `:downloads` — open Firefox's built-in managers in a new tab.
+- `:new_private` — create a private window only when Firefox has granted this extension private-window access.
 - `:history [count]` / `:clear_history` — inspect or clear saved command history.
 - `:alias name command [arguments] [, destination]` — save a structured alias, for example `:alias stream move twitch, new_window`.
 - `:aliases` / `:unalias name` — list or remove aliases.
@@ -83,7 +87,7 @@ Command history, aliases, and preferences are stored locally with Firefox extens
 - `:sort domain|title|url|recent [selector]` — sort matching tabs within each window.
 - `:reverse [selector]` / `:shuffle [selector]` — reorder matching tabs within each window. Pinned and unpinned tabs are reordered separately.
 
-Selectors include `all`, `active`, `pinned`, `audible`, `duplicates`, `twitch`, `youtube`, `audible`, `domain:example.com`, and `window:2`. Domain matching includes subdomains but does not match lookalike suffixes such as `twitch.tv.evil.example`. Private windows are excluded from these commands.
+Selectors include `all`, `active`, `pinned`, `audible`, `loading`, `duplicates`, `twitch`, `youtube`, `domain:example.com`, and `window:2`. Domain matching includes subdomains but does not match lookalike suffixes such as `twitch.tv.evil.example`. Private windows are excluded from these commands.
 
 Broad close, reload, and discard operations show a preview and require `--confirm`. The extension protects the last tab in each normal window when closing multiple tabs.
 

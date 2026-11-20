@@ -37,7 +37,15 @@ function makeWindows() {
       id: 12,
       focused: false,
       incognito: true,
-      tabs: [{ id: 5, url: "https://private.example", title: "Private" }],
+      tabs: [
+        {
+          id: 5,
+          url: "https://private.example",
+          title: "Private",
+          audible: true,
+          status: "loading",
+        },
+      ],
     },
   ];
 }
@@ -67,11 +75,16 @@ function createBrowserApi() {
     stateBroadcasts: [],
   };
   const storageData = {};
+  const extension = {
+    allowed: false,
+    isAllowedIncognitoAccess: async () => extension.allowed,
+  };
   let nextWindowId = 20;
   let nextTabId = 50;
   return {
     calls,
     storageData,
+    extension,
     storage: {
       local: {
         get: async (keys) => {
@@ -95,7 +108,7 @@ function createBrowserApi() {
         const index = windows.findIndex((window) => window.id === id);
         if (index >= 0) windows.splice(index, 1);
       },
-      create: async ({ tabId, url, focused } = {}) => {
+      create: async ({ tabId, url, focused, incognito } = {}) => {
         const id = nextWindowId++;
         const tab = tabId
           ? windows.flatMap((window) => window.tabs).find((item) => item.id === tabId)
@@ -112,12 +125,12 @@ function createBrowserApi() {
         windows.push({
           id,
           focused: focused !== false,
-          incognito: false,
+          incognito: Boolean(incognito),
           state: "normal",
           tabs: createdTabs,
         });
         syncIndexes(windows.at(-1));
-        calls.windowCreates.push({ id, tabId, url, focused });
+        calls.windowCreates.push({ id, tabId, url, focused, incognito });
         return { id, tabs: createdTabs };
       },
     },
@@ -950,4 +963,64 @@ test("confirmation previews stop destructive actions without clearing undo", asy
   const undone = await handleMessage(request("undo"), api, selectors, sender);
   assert.equal(undone.ok, true);
   assert.ok(api.calls.updated.some((call) => call.id === 1 && call.properties.pinned === false));
+});
+
+test("lists audible and loading tabs from normal windows only", async () => {
+  const api = createBrowserApi();
+  const windows = await api.windows.getAll();
+  windows[1].tabs[0].status = "loading";
+  const sender = { tab: { incognito: false } };
+
+  const audible = await handleMessage(request("audible"), api, selectors, sender);
+  assert.equal(audible.ok, true);
+  assert.equal(audible.output.length, 1);
+  assert.match(audible.output[0], /#2/);
+  assert.equal(
+    audible.output.some((line) => line.includes("#5")),
+    false,
+  );
+
+  const loading = await handleMessage(request("loading"), api, selectors, sender);
+  assert.equal(loading.ok, true);
+  assert.equal(loading.output.length, 1);
+  assert.match(loading.output[0], /#3/);
+  assert.equal(
+    loading.output.some((line) => line.includes("#5")),
+    false,
+  );
+
+  const scoped = await handleMessage(request("loading", ["youtube"]), api, selectors, sender);
+  assert.equal(scoped.output.length, 1);
+  assert.match(scoped.output[0], /#3/);
+});
+
+test("opens Firefox bookmarks and downloads managers in new normal tabs", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const bookmarks = await handleMessage(request("bookmarks"), api, selectors, sender);
+  const downloads = await handleMessage(request("downloads"), api, selectors, sender);
+  assert.equal(bookmarks.ok, true);
+  assert.equal(downloads.ok, true);
+  assert.deepEqual(
+    api.calls.tabCreates.map(({ url, windowId, active }) => ({ url, windowId, active })),
+    [
+      { url: "about:bookmarks", windowId: 10, active: true },
+      { url: "about:downloads", windowId: 10, active: true },
+    ],
+  );
+});
+
+test("creates private windows only after Firefox grants private access", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const denied = await handleMessage(request("new_private"), api, selectors, sender);
+  assert.equal(denied.ok, false);
+  assert.match(denied.error, /Run in Private Windows/);
+  assert.equal(api.calls.windowCreates.length, 0);
+
+  api.extension.allowed = true;
+  const created = await handleMessage(request("new_private"), api, selectors, sender);
+  assert.equal(created.ok, true);
+  assert.equal(api.calls.windowCreates.at(-1).incognito, true);
+  assert.equal((await api.windows.getAll()).at(-1).incognito, true);
 });

@@ -66,6 +66,7 @@
     }
     if (value === "pinned") return tabs.filter((tab) => tab.pinned);
     if (value === "audible") return tabs.filter((tab) => tab.audible);
+    if (value === "loading") return tabs.filter((tab) => tab.status === "loading");
     if (value === "duplicates") {
       const ids = duplicateTabIds(tabs);
       return tabs.filter((tab) => ids.has(tab.id));
