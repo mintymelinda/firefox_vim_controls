@@ -23,6 +23,7 @@
         "src/shared/registry.js",
         "src/shared/suggestions.js",
         "src/shared/command-state.js",
+        "src/shared/command-chain.js",
         "src/content/entry.js"
       ],
       "run_at": "document_idle"
