@@ -32,7 +32,7 @@ export function createZip(entries) {
   );
 
   for (const entry of sorted) {
-    const normalizedName = entry.name.replaceAll("\\\\", "/");
+    const normalizedName = entry.name.replaceAll("\\", "/");
     if (
       !normalizedName ||
       normalizedName.startsWith("/") ||
