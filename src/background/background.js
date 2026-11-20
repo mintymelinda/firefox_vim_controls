@@ -30,6 +30,8 @@
     "forward",
     "refresh",
     "home",
+    "session",
+    "workspace",
   ]);
 
   function validateCommandRequest(message) {
@@ -65,6 +67,210 @@
       return "Invalid command destination";
     }
     return null;
+  }
+
+
+  const SESSION_STORAGE_KEYS = ["fvcSessions", "fvcLastSessionName", "fvcWorkspaces"];
+
+  async function readSessionCollections(browserApi) {
+    const stored = await browserApi.storage.local.get(SESSION_STORAGE_KEYS);
+    return {
+      sessions: root.VimSessionState.normalizeCollection(
+        stored.fvcSessions,
+        root.VimSessionState.LIMITS.sessions,
+      ),
+      lastSessionName:
+        typeof stored.fvcLastSessionName === "string" ? stored.fvcLastSessionName : "",
+      workspaces: root.VimSessionState.normalizeCollection(
+        stored.fvcWorkspaces,
+        root.VimSessionState.LIMITS.workspaces,
+      ),
+    };
+  }
+
+  function snapshotSummary(snapshot) {
+    const tabs = snapshot.windows.reduce((count, window) => count + window.tabs.length, 0);
+    return `${snapshot.windows.length} window(s), ${tabs} tab(s)`;
+  }
+
+  async function restoreSnapshot(snapshot, browserApi) {
+    const normalized = root.VimSessionState.normalizeSnapshot(snapshot);
+    if (!normalized) throw new Error("The saved snapshot contains no restorable tabs.");
+    const createdWindows = [];
+    for (const savedWindow of normalized.windows) {
+      const [firstTab, ...remainingTabs] = savedWindow.tabs;
+      const createdWindow = await browserApi.windows.create({
+        url: firstTab.url,
+        focused: false,
+      });
+      const restoredTabs = [createdWindow.tabs?.[0]].filter(Boolean);
+      if (restoredTabs[0] && firstTab.pinned) {
+        await browserApi.tabs.update(restoredTabs[0].id, { pinned: true });
+      }
+      for (const savedTab of remainingTabs) {
+        const createdTab = await browserApi.tabs.create({
+          windowId: createdWindow.id,
+          url: savedTab.url,
+          active: false,
+          pinned: savedTab.pinned,
+        });
+        restoredTabs.push(createdTab);
+      }
+      const activeIndex = savedWindow.tabs.findIndex((tab) => tab.active);
+      if (activeIndex > 0 && restoredTabs[activeIndex]) {
+        await browserApi.tabs.update(restoredTabs[activeIndex].id, { active: true });
+      }
+      if (savedWindow.focused) {
+        await browserApi.windows.update(createdWindow.id, { focused: true });
+      }
+      createdWindows.push({
+        id: createdWindow.id,
+        tabs: restoredTabs.length,
+      });
+    }
+    return createdWindows;
+  }
+
+  async function appendSnapshot(snapshot, focusedWindow, browserApi) {
+    if (!focusedWindow) throw new Error("There is no focused normal browser window to append into.");
+    const normalized = root.VimSessionState.normalizeSnapshot(snapshot);
+    if (!normalized) throw new Error("The saved snapshot contains no restorable tabs.");
+    const createdTabs = [];
+    let activeIndex = -1;
+    for (const [windowIndex, savedWindow] of normalized.windows.entries()) {
+      for (const savedTab of savedWindow.tabs) {
+        const createdTab = await browserApi.tabs.create({
+          windowId: focusedWindow.id,
+          url: savedTab.url,
+          active: false,
+          pinned: savedTab.pinned,
+        });
+        createdTabs.push(createdTab);
+        if (savedTab.active && (savedWindow.focused || activeIndex < 0)) {
+          activeIndex = createdTabs.length - 1;
+        }
+      }
+    }
+    if (activeIndex >= 0 && createdTabs[activeIndex]) {
+      await browserApi.tabs.update(createdTabs[activeIndex].id, { active: true });
+    }
+    return createdTabs.length;
+  }
+
+  async function executeSessionCommand(command, windows, focusedWindow, browserApi) {
+    if (!browserApi?.storage?.local || !root.VimSessionState) {
+      throw new Error("Local session storage is unavailable.");
+    }
+    const [action, ...nameParts] = command.args;
+    const name = nameParts.join(" ").trim();
+    const { sessions, lastSessionName } = await readSessionCollections(browserApi);
+    if (action === "list") {
+      const entries = root.VimSessionState.listRecords(sessions, root.VimSessionState.LIMITS.sessions);
+      return {
+        ok: true,
+        output: entries.length
+          ? entries.map((item) => `${item.name} — ${item.windows} window(s), ${item.tabs} tab(s)`)
+          : ["No saved sessions."],
+      };
+    }
+    if (action === "save") {
+      const key = root.VimSessionState.normalizeName(name);
+      const snapshot = root.VimSessionState.captureSnapshot(windows);
+      const updated = root.VimSessionState.saveRecord(
+        sessions,
+        key,
+        snapshot,
+        root.VimSessionState.LIMITS.sessions,
+      );
+      await browserApi.storage.local.set({ fvcSessions: updated, fvcLastSessionName: key });
+      return { ok: true, output: [`Saved session "${key}" — ${snapshotSummary(snapshot)}.`] };
+    }
+    if (action === "delete") {
+      const updated = root.VimSessionState.deleteRecord(
+        sessions,
+        name,
+        root.VimSessionState.LIMITS.sessions,
+      );
+      await browserApi.storage.local.set({
+        fvcSessions: updated,
+        ...(lastSessionName === name ? { fvcLastSessionName: "" } : {}),
+      });
+      return { ok: true, output: [`Deleted session "${name}".`] };
+    }
+    if (action === "load" || action === "restore" || action === "append") {
+      const key = action === "restore" ? lastSessionName : name;
+      if (!key) throw new Error("No last-saved session is available to restore.");
+      const record = sessions[key];
+      if (!record) throw new Error(`No saved session named "${key}" exists.`);
+      if (action === "append") {
+        const count = await appendSnapshot(record.snapshot, focusedWindow, browserApi);
+        return { ok: true, output: [`Appended ${count} tab(s) from session "${key}".`] };
+      }
+      const created = await restoreSnapshot(record.snapshot, browserApi);
+      return {
+        ok: true,
+        output: [`Loaded session "${key}" into ${created.length} new window(s).`],
+      };
+    }
+    throw new Error("Session syntax: :session save|load|append|list|delete name, or :session restore.");
+  }
+
+  async function executeWorkspaceCommand(command, windows, focusedWindow, browserApi) {
+    if (!browserApi?.storage?.local || !root.VimSessionState) {
+      throw new Error("Local workspace storage is unavailable.");
+    }
+    const [action, ...nameParts] = command.args;
+    const name = nameParts.join(" ").trim();
+    const stored = await browserApi.storage.local.get(["fvcWorkspaces"]);
+    const workspaces = root.VimSessionState.normalizeCollection(
+      stored.fvcWorkspaces,
+      root.VimSessionState.LIMITS.workspaces,
+    );
+    if (action === "list") {
+      const entries = root.VimSessionState.listRecords(
+        workspaces,
+        root.VimSessionState.LIMITS.workspaces,
+      );
+      return {
+        ok: true,
+        output: entries.length
+          ? entries.map((item) => `${item.name} — ${item.windows} window(s), ${item.tabs} tab(s)`)
+          : ["No workspaces have been created."],
+      };
+    }
+    if (action === "create") {
+      const key = root.VimSessionState.normalizeName(name);
+      if (Object.hasOwn(workspaces, key)) {
+        throw new Error(`Workspace "${key}" already exists.`);
+      }
+      const snapshot = root.VimSessionState.captureSnapshot(windows);
+      const updated = root.VimSessionState.saveRecord(
+        workspaces,
+        key,
+        snapshot,
+        root.VimSessionState.LIMITS.workspaces,
+      );
+      await browserApi.storage.local.set({ fvcWorkspaces: updated });
+      return { ok: true, output: [`Created workspace "${key}" — ${snapshotSummary(snapshot)}.`] };
+    }
+    if (action === "switch") {
+      const record = workspaces[name];
+      if (!record) throw new Error(`No workspace named "${name}" exists.`);
+      const created = await restoreSnapshot(record.snapshot, browserApi);
+      return { ok: true, output: [`Opened workspace "${name}" in ${created.length} new window(s).`] };
+    }
+    if (action === "rename") {
+      const [oldName, newName] = nameParts;
+      const updated = root.VimSessionState.renameRecord(
+        workspaces,
+        oldName,
+        newName,
+        root.VimSessionState.LIMITS.workspaces,
+      );
+      await browserApi.storage.local.set({ fvcWorkspaces: updated });
+      return { ok: true, output: [`Renamed workspace "${oldName}" to "${newName}".`] };
+    }
+    throw new Error("Workspace syntax: :workspace create|switch name, :workspace list, or :workspace rename old new.");
   }
 
   const STATE_STORAGE_KEYS = ["fvcCommandHistory", "fvcCommandAliases", "fvcCommandPreferences"];
@@ -744,6 +950,12 @@
   async function executeCommand(command, browserApi, selectors) {
     const windows = await getNormalWindowSnapshot(browserApi);
     const focusedWindow = windows.find((window) => window.focused);
+    if (command.name === "session") {
+      return executeSessionCommand(command, windows, focusedWindow, browserApi);
+    }
+    if (command.name === "workspace") {
+      return executeWorkspaceCommand(command, windows, focusedWindow, browserApi);
+    }
     if (command.name === "open" || command.name === "search") {
       return executeOpenCommand(command, focusedWindow, browserApi);
     }
@@ -857,6 +1069,12 @@
     const validationError = validateCommandRequest(message);
     if (validationError) return { ok: false, error: validationError };
     const { command } = message;
+    if (
+      sender.tab?.incognito &&
+      ["session", "workspace"].includes(command.name)
+    ) {
+      return { ok: false, error: "Session and workspace commands are disabled in private browsing." };
+    }
     if (!IMPLEMENTED_COMMANDS.has(command.name)) {
       return { ok: false, error: `Command is not implemented yet: ${command.name}` };
     }
@@ -881,6 +1099,10 @@
     executeCommand,
     executeNavigationCommand,
     executeOpenCommand,
+    executeSessionCommand,
+    executeWorkspaceCommand,
+    restoreSnapshot,
+    appendSnapshot,
     resolveNavigationUrl,
     executeMutation,
     executeWindowCommand,
