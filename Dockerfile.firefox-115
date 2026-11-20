@@ -13,9 +13,9 @@ RUN set -eux; \
     curl --fail --silent --show-error --location "${FIREFOX_RELEASE_URL}/linux-x86_64/en-US/${FIREFOX_ARCHIVE}" -o "/tmp/${FIREFOX_ARCHIVE}"; \
     checksum="$(awk -v path="linux-x86_64/en-US/${FIREFOX_ARCHIVE}" '$2 == path || $2 == "*" path { print $1 }' /tmp/firefox-SHA256SUMS)"; \
     test -n "$checksum"; \
-    printf '%s  %s\\n' "$checksum" "/tmp/${FIREFOX_ARCHIVE}" | sha256sum --check -; \
+    printf '%s  %s\n' "$checksum" "/tmp/${FIREFOX_ARCHIVE}" | sha256sum --check -; \
     tar -xjf "/tmp/${FIREFOX_ARCHIVE}" -C /opt; \
-    rm -f "/tmp/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS /tmp/firefox-checksum; \
+    rm -f "/tmp/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS; \
     apt-get purge -y --auto-remove curl bzip2; \
     rm -rf /var/lib/apt/lists/*
 
