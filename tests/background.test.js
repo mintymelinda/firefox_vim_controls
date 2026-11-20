@@ -358,7 +358,7 @@ test("rejects unsafe URL schemes and embedded credentials", async () => {
 
 test("searches the web and navigates tab history", async () => {
   const api = createBrowserApi();
-  const searched = await handleMessage(request("search", ["cats", "and", "dogs"]), api, selectors);
+  await handleMessage(request("search", ["cats", "and", "dogs"]), api, selectors);
   const searchUrl = new URL(api.calls.updated[0].properties.url);
   assert.equal(searchUrl.origin, "https://duckduckgo.com");
   assert.equal(searchUrl.searchParams.get("q"), "cats and dogs");
