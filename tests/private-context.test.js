@@ -191,6 +191,7 @@ test("private state writes are acknowledged as transient and never reach storage
   assert.deepEqual(result, { ok: true, persisted: false });
   assert.deepEqual(api.calls.gets, []);
   assert.deepEqual(api.calls.sets, []);
+  assert.equal(api.calls.windowGets, 0);
   assert.deepEqual(api.storageData, before);
 });
 
