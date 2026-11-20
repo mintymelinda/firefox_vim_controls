@@ -7,4 +7,5 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await cp(new URL("manifest.json", root), new URL("manifest.json", output));
 await cp(new URL("src/", root), new URL("src/", output), { recursive: true });
+await cp(new URL("_locales/", root), new URL("_locales/", output), { recursive: true });
 console.log("Built unpacked extension in dist/");
