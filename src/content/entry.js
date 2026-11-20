@@ -143,16 +143,17 @@
   }
 
   async function handleLocalCommand(command) {
+    let failed = false;
     if (command.name === "alias") {
       if (command.args.length < 2) {
         appendOutput("Alias syntax: :alias name command [arguments] [, destination].", "error");
-        return true;
+        return "error";
       }
       const [name, targetName, ...args] = command.args;
       const target = globalThis.VimCommandRegistry.get(targetName);
       if (!target || target.status !== "implemented") {
         appendOutput(`Alias target is not an implemented command: ${targetName}`, "error");
-        return true;
+        return "error";
       }
       try {
         aliases[name.toLowerCase()] = globalThis.VimCommandState.createAlias(
@@ -164,20 +165,22 @@
         appendOutput(`Alias :${name.toLowerCase()} created.`);
       } catch (error) {
         appendOutput(error.message, "error");
+        failed = true;
       }
-      return true;
+      return failed ? "error" : true;
     }
 
     if (command.name === "unalias") {
       const name = command.args[0]?.toLowerCase();
       if (!name || !Object.hasOwn(aliases, name)) {
         appendOutput(name ? `No alias named :${name} exists.` : "Usage: :unalias name.", "error");
+        failed = true;
       } else {
         delete aliases[name];
         await persistState();
         appendOutput(`Alias :${name} removed.`);
       }
-      return true;
+      return failed ? "error" : true;
     }
 
     if (command.name === "aliases") {
@@ -208,7 +211,7 @@
           "Preference syntax: :set history_limit 100 | search_engine duckduckgo|google|bing.",
           "error",
         );
-        return true;
+        return "error";
       }
       try {
         preferences = globalThis.VimCommandState.updatePreference(
@@ -227,8 +230,41 @@
         appendOutput(`${command.args[0]} set to ${command.args[1]}.`);
       } catch (error) {
         appendOutput(error.message, "error");
+        failed = true;
       }
-      return true;
+      return failed ? "error" : true;
+    }
+
+    if (command.name === "macro") {
+      const [action, name] = command.args;
+      if (action === "list" && command.args.length === 1) {
+        const response = await browser.runtime.sendMessage({ type: "VIM_MACRO_GET" });
+        if (!response?.ok) {
+          appendOutput(response?.error || "Could not list macros.", "error");
+          return "error";
+        }
+        const lines = response.macros.map((macro) => `:${macro.name} (${macro.commands} command(s))`);
+        appendOutput(lines.length ? lines.join("\\n") : "No macros are defined.");
+        return true;
+      }
+      if (action === "delete" && command.args.length === 2) {
+        const response = await browser.runtime.sendMessage({
+          type: "VIM_MACRO_DELETE",
+          name,
+        });
+        if (!response?.ok) {
+          appendOutput(response?.error || "Could not delete macro.", "error");
+          return "error";
+        }
+        appendOutput(response.output?.[0] || `Macro "${name}" deleted.`);
+        return true;
+      }
+      if (action === "run") {
+        appendOutput("Macro run must be expanded by the command runner.", "error");
+        return "error";
+      }
+      appendOutput("Macro syntax: :macro define name && command [&& command ...], :macro run name, :macro list, or :macro delete name.", "error");
+      return "error";
     }
 
     return false;
@@ -251,11 +287,36 @@
     await stateReady;
     try {
       const parsed = globalThis.VimCommandParser.parseCommandLine(raw);
-      if (parsed.commands.length > 1) {
-        appendOutput("Command chaining is recognized but execution is deferred to a later phase.");
+      const first = parsed.commands[0];
+      if (first.name === "macro" && first.args[0] === "define") {
+        if (first.args.length !== 2 || parsed.commands.length < 2 || first.destination.length) {
+          appendOutput("Macro definition syntax: :macro define name && command [&& command ...].", "error");
+          input.value = "";
+          return;
+        }
+        const commands = parsed.commands
+          .slice(1)
+          .map((command) => globalThis.VimCommandState.expandAlias(command, aliases))
+          .map(commandForExecution);
+        const response = await browser.runtime.sendMessage({
+          type: "VIM_MACRO_SET",
+          name: first.args[1],
+          commands,
+        });
+        if (!response?.ok) {
+          appendOutput(response?.error || "Could not save macro.", "error");
+        } else {
+          appendOutput(response.output?.[0] || `Macro "${first.args[1]}" saved.`);
+        }
         input.value = "";
         return;
       }
+      if (parsed.commands.some((command) => command.name === "macro" && command.args[0] === "define")) {
+        appendOutput("Macro definitions must be the first and only command on their line.", "error");
+        input.value = "";
+        return;
+      }
+
       const updatedHistory = globalThis.VimCommandState.appendHistory(
         history,
         raw,
@@ -265,7 +326,30 @@
       historyIndex = history.length;
       await persistState();
 
+      const commands = [];
       for (const parsedCommand of parsed.commands) {
+        if (parsedCommand.name !== "macro" || parsedCommand.args[0] !== "run") {
+          commands.push(parsedCommand);
+          continue;
+        }
+        if (parsedCommand.args.length !== 2 || parsedCommand.destination.length) {
+          appendOutput("Macro run syntax: :macro run name.", "error");
+          input.value = "";
+          return;
+        }
+        const response = await browser.runtime.sendMessage({
+          type: "VIM_MACRO_GET",
+          name: parsedCommand.args[1],
+        });
+        if (!response?.ok) {
+          appendOutput(response?.error || "Could not load macro.", "error");
+          input.value = "";
+          return;
+        }
+        commands.push(...response.commands);
+      }
+
+      for (const parsedCommand of commands) {
         const command = globalThis.VimCommandState.expandAlias(parsedCommand, aliases);
         const definition = globalThis.VimCommandRegistry.get(command.name);
         if (!definition || definition.status !== "implemented") {
@@ -277,9 +361,11 @@
             ? ` Did you mean ${suggestions.map((name) => `:${name}`).join(", ")}?`
             : " Try :help.";
           appendOutput(`Unknown or not-yet-implemented command: ${command.name}.${hint}`, "error");
-          continue;
+          break;
         }
-        if (await handleLocalCommand(command)) continue;
+        const localResult = await handleLocalCommand(command);
+        if (localResult === "error") break;
+        if (localResult === true) continue;
         if (command.name === "help") {
           const allCommands = globalThis.VimCommandRegistry.all();
           const available = allCommands
@@ -309,8 +395,12 @@
           });
           if (!response?.ok) {
             appendOutput(response?.error || "The background command failed.", "error");
-          } else {
-            for (const line of response.output || []) appendOutput(line);
+            break;
+          }
+          for (const line of response.output || []) appendOutput(line);
+          if (response.requiresConfirmation) {
+            appendOutput("Command chain stopped here. Confirm this action separately with --confirm.");
+            break;
           }
         }
       }
@@ -319,6 +409,7 @@
       appendOutput(error.message, "error");
     }
   }
+
 
   async function handlePromptKeydown(event) {
     if (event.key === "Escape") {
