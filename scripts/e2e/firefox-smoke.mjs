@@ -97,6 +97,8 @@ try {
   });
   assert.ok(installedId, "development extension should install temporarily");
 
+  // Exercise the about:blank injection boundary before opening or moving tabs/windows.
+  // Firefox can leave Marionette's current browsing context stale after a window move.
   await request("POST", `/session/${sessionId}/url`, { url: fixtureUrl });
   await waitFor("fixture page title", async () => {
     return (await request("GET", `/session/${sessionId}/title`)) === "Firefox Vim Controls fixture";
