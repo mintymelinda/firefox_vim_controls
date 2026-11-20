@@ -15,6 +15,8 @@ const commandNames = [
   "history",
   "clear_history",
   "set",
+  "session",
+  "workspace",
 ];
 
 test("normalizes and bounds persistent command history", () => {
@@ -113,6 +115,12 @@ test("completes command names, aliases, selectors, destinations, and preference 
   );
   assert.ok(
     state.completionCandidates(":set search_engine g", commandNames, aliases).includes("google"),
+  );
+  assert.ok(
+    state.completionCandidates(":session s", commandNames, aliases).includes("save"),
+  );
+  assert.ok(
+    state.completionCandidates(":workspace sw", commandNames, aliases).includes("switch"),
   );
 });
 
