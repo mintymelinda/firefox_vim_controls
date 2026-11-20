@@ -16,7 +16,7 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. Do
 
 ## Current status
 
-Phase 1 and Phase 2 command foundations are implemented. Phase 3 adds normal-window management and tab organization.
+Phases 1–5 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, and preferences. Phase 6 adds local sessions and named workspaces.
 
 ## Keyboard behaviour
 
@@ -52,6 +52,16 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:aliases` / `:unalias name` — list or remove aliases.
 - `:set history_limit 100` — retain 10–500 commands (default 100).
 - `:set search_engine duckduckgo|google|bing` — choose the engine used by `:search` (default DuckDuckGo).
+- `:session save name` — save the current normal-window layout as a named session.
+- `:session load name` — restore a saved session into new normal windows without closing current tabs.
+- `:session append name` — append a saved session's tabs to the focused normal window.
+- `:session list` / `:session delete name` — list or delete saved sessions.
+- `:session restore` — restore the most recently saved session.
+- `:workspace create name` — save the current normal-window layout as a workspace.
+- `:workspace switch name` — open a workspace in new normal window(s), leaving existing windows untouched.
+- `:workspace list` / `:workspace rename old new` — list or rename saved workspaces.
+
+Sessions and workspaces are local snapshots of HTTP(S) tabs only. They preserve window grouping, tab order, pinned state, and the active tab. Firefox internal pages, extension pages, blank tabs, and URLs with embedded credentials are excluded. Each collection is bounded (30 sessions, 20 workspaces, up to 20 windows and 500 tabs per snapshot). Private-window commands are rejected and private tabs are never saved.
 
 Command history, aliases, and preferences are stored locally with Firefox extension storage. They are kept in memory only in private browsing contexts and are never written to persistent storage there. Tab completion includes command names, aliases, selectors, destinations, and preference values.
 - `:stop` remains planned: Firefox WebExtensions does not expose a reliable stop-loading method without injecting page script.
