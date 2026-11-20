@@ -89,7 +89,9 @@
     if (input.length > 2000) throw new Error("Command is too long (maximum 2000 characters)");
     const source = input.trim().replace(/^:/, "");
     if (!source) throw new Error("Enter a command");
-    const segments = splitOutsideQuotes(source, "&&").map((segment) => segment.trim().replace(/^:/, "").trim());
+    const segments = splitOutsideQuotes(source, "&&").map((segment) =>
+      segment.trim().replace(/^:/, "").trim(),
+    );
     if (segments.some((segment) => !segment)) {
       throw new Error("Empty command in command chain");
     }
