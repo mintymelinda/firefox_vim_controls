@@ -14,15 +14,27 @@ test("normalizes safe macro names and parsed command objects", () => {
     [{ name: "move", args: ["twitch"], destination: ["new_window"] }],
   );
   assert.throws(
-    () => macros.normalizeCommands([{ name: "macro", args: ["run", "other"], destination: [] }], allowed),
+    () =>
+      macros.normalizeCommands(
+        [{ name: "macro", args: ["run", "other"], destination: [] }],
+        allowed,
+      ),
     /invalid or unsupported/,
   );
   assert.throws(
-    () => macros.normalizeCommands([{ name: "tabs", args: ["x".repeat(257)], destination: [] }], allowed),
+    () =>
+      macros.normalizeCommands(
+        [{ name: "tabs", args: ["x".repeat(257)], destination: [] }],
+        allowed,
+      ),
     /invalid or unsupported/,
   );
   assert.throws(
-    () => macros.normalizeCommands([{ name: "close", args: ["all", "--confirm"], destination: [] }], allowed),
+    () =>
+      macros.normalizeCommands(
+        [{ name: "close", args: ["all", "--confirm"], destination: [] }],
+        allowed,
+      ),
     /invalid or unsupported/,
   );
   assert.throws(() => macros.normalizeName("../bad"), /Macro names/);
@@ -70,7 +82,13 @@ test("enforces macro count, command count, and storage bounds", () => {
     );
   }
   assert.throws(
-    () => macros.saveMacro(collection, "overflow", [{ name: "tabs", args: [], destination: [] }], allowed),
+    () =>
+      macros.saveMacro(
+        collection,
+        "overflow",
+        [{ name: "tabs", args: [], destination: [] }],
+        allowed,
+      ),
     /limit of 20/,
   );
 });
