@@ -32,6 +32,7 @@
     "home",
     "session",
     "workspace",
+    "undo",
   ]);
 
   function validateCommandRequest(message) {
@@ -67,6 +68,86 @@
       return "Invalid command destination";
     }
     return null;
+  }
+
+
+  const MACRO_STORAGE_KEY = "fvcCommandMacros";
+
+  function allowedMacroCommands() {
+    return [...IMPLEMENTED_COMMANDS].filter((name) => name !== "undo");
+  }
+
+  function validateMacroMessage(message) {
+    if (!message || typeof message !== "object" || Array.isArray(message)) {
+      return "Invalid macro message";
+    }
+    const types = {
+      VIM_MACRO_GET: ["type", "name"],
+      VIM_MACRO_SET: ["type", "name", "commands"],
+      VIM_MACRO_DELETE: ["type", "name"],
+    };
+    const allowedKeys = types[message.type];
+    if (!allowedKeys) return "Invalid macro message type";
+    if (Object.keys(message).some((key) => !allowedKeys.includes(key))) {
+      return "Unexpected macro message properties";
+    }
+    if (message.type !== "VIM_MACRO_GET" || Object.hasOwn(message, "name")) {
+      try {
+        root.VimMacroState.normalizeName(message.name);
+      } catch (error) {
+        return error instanceof Error ? error.message : "Invalid macro name";
+      }
+    }
+    if (message.type === "VIM_MACRO_SET") {
+      try {
+        root.VimMacroState.normalizeCommands(message.commands, allowedMacroCommands());
+      } catch (error) {
+        return error instanceof Error ? error.message : "Invalid macro commands";
+      }
+    }
+    return null;
+  }
+
+  async function handleMacroMessage(message, browserApi, sender = {}) {
+    const validationError = validateMacroMessage(message);
+    if (validationError) return { ok: false, error: validationError };
+    if (sender.tab?.incognito) {
+      return { ok: false, error: "Macros are disabled in private browsing." };
+    }
+    if (!browserApi?.storage?.local || !root.VimMacroState) {
+      return { ok: false, error: "Local macro storage is unavailable." };
+    }
+    const stored = await browserApi.storage.local.get([MACRO_STORAGE_KEY]);
+    const macros = root.VimMacroState.normalizeMacros(
+      stored[MACRO_STORAGE_KEY],
+      allowedMacroCommands(),
+    );
+    if (message.type === "VIM_MACRO_GET") {
+      if (!Object.hasOwn(message, "name")) {
+        return { ok: true, macros: root.VimMacroState.listMacros(macros, allowedMacroCommands()) };
+      }
+      const name = root.VimMacroState.normalizeName(message.name);
+      const record = macros[name];
+      if (!record) return { ok: false, error: `No macro named "${name}" exists.` };
+      return { ok: true, name, commands: record.commands };
+    }
+    if (message.type === "VIM_MACRO_SET") {
+      const updated = root.VimMacroState.saveMacro(
+        macros,
+        message.name,
+        message.commands,
+        allowedMacroCommands(),
+      );
+      await browserApi.storage.local.set({ [MACRO_STORAGE_KEY]: updated });
+      return { ok: true, output: [`Macro "${message.name}" saved.`] };
+    }
+    const updated = root.VimMacroState.deleteMacro(
+      macros,
+      message.name,
+      allowedMacroCommands(),
+    );
+    await browserApi.storage.local.set({ [MACRO_STORAGE_KEY]: updated });
+    return { ok: true, output: [`Macro "${message.name}" deleted.`] };
   }
 
   const SESSION_STORAGE_KEYS = ["fvcSessions", "fvcLastSessionName", "fvcWorkspaces"];
@@ -1108,6 +1189,18 @@
     selectors = root.VimTabSelectors,
     sender = {},
   ) {
+    if (
+      ["VIM_MACRO_GET", "VIM_MACRO_SET", "VIM_MACRO_DELETE"].includes(message?.type)
+    ) {
+      try {
+        return await handleMacroMessage(message, browserApi, sender);
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Could not access macro storage.",
+        };
+      }
+    }
     if (message?.type === "VIM_STATE_GET" || message?.type === "VIM_STATE_SET") {
       try {
         return await handleStateMessage(message, browserApi, sender);
@@ -1162,6 +1255,8 @@
     getNormalWindowSnapshot,
     handleMessage,
     handleStateMessage,
+    handleMacroMessage,
+    validateMacroMessage,
     validateStateMessage,
     orderedSelection,
     previewLines,
