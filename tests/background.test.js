@@ -905,12 +905,14 @@ test("undo restores tabs to source windows after merge", async () => {
     (await api.windows.getAll()).find((window) => window.id === 11).tabs,
     [],
   );
+  await api.windows.remove(11);
   const undone = await handleMessage(request("undo"), api, selectors, sender);
   assert.equal(undone.ok, true);
-  assert.deepEqual(
-    (await api.windows.getAll()).find((window) => window.id === 11).tabs.map((tab) => tab.id),
-    [3, 4],
+  const restoredWindow = (await api.windows.getAll()).find((window) =>
+    window.tabs.some((tab) => tab.id === 3),
   );
+  assert.notEqual(restoredWindow.id, 11);
+  assert.deepEqual(restoredWindow.tabs.map((tab) => tab.id), [3, 4]);
 });
 
 test("irreversible commands clear undo history and private undo is blocked", async () => {
