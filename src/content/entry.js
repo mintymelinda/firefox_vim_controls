@@ -343,6 +343,21 @@
     }
   }
 
+  if (!privateContext && browser.runtime.onMessage) {
+    browser.runtime.onMessage.addListener((message) => {
+      if (message?.type !== "VIM_STATE_UPDATED") return;
+      const stored = message.state || {};
+      preferences = globalThis.VimCommandState.normalizePreferences(stored.preferences);
+      history.splice(
+        0,
+        history.length,
+        ...globalThis.VimCommandState.normalizeHistory(stored.history, preferences.historyLimit),
+      );
+      aliases = globalThis.VimCommandState.normalizeAliases(stored.aliases, commandNames);
+      historyIndex = history.length;
+    });
+  }
+
   document.addEventListener(
     "keydown",
     (event) => {
