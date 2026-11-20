@@ -222,6 +222,7 @@ try {
       return text.includes(expectedOutput) ? text : null;
     });
   }
+
   await sendKeys(sessionId, commandInput, ":tabs");
   await sendKeys(sessionId, commandInput, "\uE007");
   const output = await waitFor("background command response", async () => {
@@ -269,6 +270,7 @@ try {
     ":open http://fixture:4173/second new_tab",
     "Opened http://fixture:4173/second in new tab",
   );
+  await delay(500);
   await runCommand(":count all", "2 tab(s) matched all.");
   await runCommand(":pin all", "2 of 2 tab(s) updated.");
   const pinnedTabs = await runCommand(":tabs", "[pinned]");
@@ -286,6 +288,7 @@ try {
     ":open http://unrelated-fixture:4173/untouched new_tab",
     "Opened http://unrelated-fixture:4173/untouched in new tab",
   );
+  await delay(500);
   await runCommand(
     ":move domain:fixture, new_window",
     "Moved 2 tab(s) into new window",
