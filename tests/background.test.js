@@ -9,6 +9,7 @@ const {
 const selectors = require("../src/shared/selectors.js");
 require("../src/shared/registry.js");
 require("../src/shared/command-state.js");
+require("../src/shared/session-state.js");
 
 function makeWindows() {
   return [
@@ -58,8 +59,10 @@ function createBrowserApi() {
   };
   const storageData = {};
   let nextWindowId = 20;
+  let nextTabId = 50;
   return {
     calls,
+    storageData,
     storage: {
       local: {
         get: async (keys) => {
@@ -78,7 +81,7 @@ function createBrowserApi() {
         calls.windowUpdates.push({ id, properties });
         return { id, ...properties };
       },
-      create: async ({ tabId, url } = {}) => {
+      create: async ({ tabId, url, focused } = {}) => {
         const id = nextWindowId++;
         const tab = tabId
           ? windows.flatMap((window) => window.tabs).find((item) => item.id === tabId)
@@ -86,29 +89,48 @@ function createBrowserApi() {
         for (const window of windows) {
           window.tabs = window.tabs.filter((item) => item.id !== tabId);
         }
-        const createdTabs = tab ? [tab] : [];
+        const createdTabs = tab
+          ? [tab]
+          : url
+            ? [{ id: nextTabId++, url, title: url, active: true, pinned: false }]
+            : [];
         windows.push({
           id,
-          focused: true,
+          focused: focused !== false,
           incognito: false,
           state: "normal",
           tabs: createdTabs,
         });
-        calls.windowCreates.push({ id, tabId, url });
+        calls.windowCreates.push({ id, tabId, url, focused });
         return { id, tabs: createdTabs };
       },
     },
     tabs: {
-      query: async () =>
-        windows.flatMap((window) =>
-          window.tabs.map((tab) => ({ ...tab, incognito: window.incognito, windowId: window.id })),
-        ),
+      query: async (query = {}) =>
+        windows
+          .filter((window) => query.windowId === undefined || window.id === query.windowId)
+          .flatMap((window) =>
+            window.tabs.map((tab) => ({ ...tab, incognito: window.incognito, windowId: window.id })),
+          ),
       sendMessage: async (id, message) => calls.stateBroadcasts.push({ id, message }),
       remove: async (id) => calls.removed.push(id),
-      update: async (id, properties) => calls.updated.push({ id, properties }),
+      update: async (id, properties) => {
+        calls.updated.push({ id, properties });
+        for (const window of windows) {
+          const tab = window.tabs.find((item) => item.id === id);
+          if (!tab) continue;
+          if (properties.active) {
+            for (const item of window.tabs) item.active = item.id === id;
+          }
+          Object.assign(tab, properties);
+        }
+      },
       create: async (properties) => {
         calls.tabCreates.push(properties);
-        return { id: 40 + calls.tabCreates.length, ...properties };
+        const tab = { id: nextTabId++, ...properties, title: properties.url, active: properties.active };
+        const window = windows.find((item) => item.id === properties.windowId);
+        if (window) window.tabs.push(tab);
+        return tab;
       },
       goBack: async (id) => calls.wentBack.push(id),
       goForward: async (id) => calls.wentForward.push(id),
