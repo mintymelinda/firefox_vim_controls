@@ -14,11 +14,10 @@
 
   function normalizeName(value) {
     const name = String(value || "").trim();
-    if (
-      name.length > LIMITS.nameLength ||
-      !/^[a-z0-9][a-z0-9_-]*$/i.test(name)
-    ) {
-      throw new Error("Names must start with a letter or number and contain only letters, numbers, _ or - (up to 40 characters).");
+    if (name.length > LIMITS.nameLength || !/^[a-z0-9][a-z0-9_-]*$/i.test(name)) {
+      throw new Error(
+        "Names must start with a letter or number and contain only letters, numbers, _ or - (up to 40 characters).",
+      );
     }
     return name;
   }
@@ -153,7 +152,8 @@
     const newKey = normalizeName(newName);
     const next = { ...normalizeCollection(collection, limit) };
     if (!Object.hasOwn(next, oldKey)) throw new Error(`No saved record named "${oldKey}" exists.`);
-    if (Object.hasOwn(next, newKey)) throw new Error(`A saved record named "${newKey}" already exists.`);
+    if (Object.hasOwn(next, newKey))
+      throw new Error(`A saved record named "${newKey}" already exists.`);
     next[newKey] = next[oldKey];
     delete next[oldKey];
     return next;
