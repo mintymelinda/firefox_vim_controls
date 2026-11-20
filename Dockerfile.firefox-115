@@ -1,0 +1,24 @@
+FROM selenium/standalone-firefox:4.52.0-20261101
+
+USER root
+
+ARG FIREFOX_ESR_VERSION=115.45.0
+ARG FIREFOX_ARCHIVE=firefox-${FIREFOX_ESR_VERSION}esr.tar.bz2
+ARG FIREFOX_RELEASE_URL=https://ftp.mozilla.org/pub/firefox/releases/${FIREFOX_ESR_VERSION}esr
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --no-install-recommends -y ca-certificates curl bzip2; \
+    curl --fail --silent --show-error --location "${FIREFOX_RELEASE_URL}/SHA256SUMS" -o /tmp/firefox-SHA256SUMS; \
+    curl --fail --silent --show-error --location "${FIREFOX_RELEASE_URL}/linux-x86_64/en-US/${FIREFOX_ARCHIVE}" -o "/tmp/${FIREFOX_ARCHIVE}"; \
+    grep "linux-x86_64/en-US/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS > /tmp/firefox-checksum; \
+    (cd /tmp && sha256sum --check firefox-checksum); \
+    tar -xjf "/tmp/${FIREFOX_ARCHIVE}" -C /opt; \
+    rm -f "/tmp/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS /tmp/firefox-checksum; \
+    apt-get purge -y --auto-remove curl bzip2; \
+    rm -rf /var/lib/apt/lists/*
+
+ENV SE_BROWSER_BINARY_LOCATION_FIREFOX=/opt/firefox/firefox
+ENV SE_NODE_BROWSER_VERSION=115.45.0
+
+USER seluser
