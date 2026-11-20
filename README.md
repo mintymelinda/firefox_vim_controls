@@ -12,11 +12,13 @@ docker compose run --rm app npm run check
 docker compose run --rm app npm run format
 ```
 
-The image pins Node and Biome versions. `npm ci` uses the committed lockfile. Do not install project dependencies on the host.
+The image pins Node and Biome versions. `npm ci` uses the committed lockfile. `npm run check` includes the unpacked build and deterministic ZIP package. The distributable is written to `artifacts/`. Do not install project dependencies on the host.
 
 ## Current status
 
-Phases 1–5 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, and preferences. Phase 6 adds local sessions and named workspaces.
+Phases 1–8 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, and AMO packaging.
+
+See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md).
 
 ## Keyboard behaviour
 
@@ -68,7 +70,7 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 
 Command chains separated by `&&` execute sequentially and stop at the first error. Confirmation previews stop a chain; rerun the previewed operation separately with `--confirm`. Macros contain parsed, registered commands only (no arbitrary code, nested macros, or undo commands). Macros are stored in the normal browser profile and are unavailable in private browsing. Undo is bounded to the most recent 20 reversible operations in the current background session and is cleared by irreversible navigation, close, reload, discard, session/workspace, and window-state operations. Closing tabs and reloading pages cannot be undone.
 
-Sessions and workspaces are local snapshots of HTTP(S) tabs only. They preserve window grouping, tab order, pinned state, and the active tab. Firefox internal pages, extension pages, blank tabs, and URLs with embedded credentials are excluded. Each collection is bounded (20 sessions, 10 workspaces, up to 20 windows and 300 tabs per snapshot), with an 8 MiB aggregate storage budget. Private-window commands are rejected and private tabs are never saved.
+Sessions and workspaces are local snapshots of HTTP(S) tabs only. They preserve window grouping, tab order, pinned state, and the active tab. Firefox internal pages, extension pages, blank tabs, and URLs with embedded credentials are excluded. Each collection is bounded (20 sessions, 10 workspaces, up to 20 windows and 300 tabs per snapshot), with an 8 MiB aggregate storage budget. Session, workspace, macro, and undo commands invoked from private windows are rejected; private tabs are never saved.
 
 Command history, aliases, and preferences are stored locally with Firefox extension storage. They are kept in memory only in private browsing contexts and are never written to persistent storage there. Tab completion includes command names, aliases, selectors, destinations, and preference values.
 - `:stop` remains planned: Firefox WebExtensions does not expose a reliable stop-loading method without injecting page script.

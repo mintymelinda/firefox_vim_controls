@@ -17,6 +17,9 @@
   let input = null;
   let output = null;
   let lastCompletion = "";
+  let previousFocus = null;
+  let focusTrapHandler = null;
+  const MAX_OUTPUT_LINES = 200;
 
   const commandNames = globalThis.VimCommandRegistry.names();
   const privateContext = Boolean(globalThis.browser?.extension?.inIncognitoContext);
@@ -59,14 +62,32 @@
     line.className = `fvc-output fvc-output-${kind}`;
     line.textContent = message;
     output.append(line);
+    globalThis.VimPromptOutput.trimOutput(output, MAX_OUTPUT_LINES);
     output.scrollTop = output.scrollHeight;
   }
 
+  function localizedMessage(key, fallback) {
+    try {
+      return browser.i18n?.getMessage(key) || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   function closePanel() {
+    const restoreTarget = previousFocus;
+    if (focusTrapHandler) {
+      document.removeEventListener("focusin", focusTrapHandler, true);
+      focusTrapHandler = null;
+    }
     panel?.remove();
     panel = null;
     input = null;
     output = null;
+    previousFocus = null;
+    if (restoreTarget?.isConnected && typeof restoreTarget.focus === "function") {
+      restoreTarget.focus();
+    }
   }
 
   function showPanel() {
@@ -75,10 +96,15 @@
       return;
     }
 
+    previousFocus = document.activeElement;
     panel = document.createElement("section");
     panel.id = "fvc-command-panel";
     panel.setAttribute("role", "dialog");
-    panel.setAttribute("aria-label", "Firefox Vim Controls command prompt");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute(
+      "aria-label",
+      localizedMessage("commandPromptLabel", "Firefox Vim Controls command prompt"),
+    );
     panel.innerHTML = `
       <style>
         #fvc-command-panel{position:fixed;z-index:2147483647;left:50%;top:12%;transform:translateX(-50%);width:min(720px,92vw);max-height:70vh;background:#17191f;color:#f4f4f5;border:1px solid #555;border-radius:10px;box-shadow:0 16px 60px #0009;font:14px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;padding:12px}
@@ -90,17 +116,30 @@
         #fvc-command-panel .fvc-output-error{color:#fca5a5}
         #fvc-command-panel .fvc-hint{color:#9ca3af;font-size:11px;margin-top:8px}
       </style>
-      <div class="fvc-input-row"><label for="fvc-command-input">:</label><input id="fvc-command-input" autocomplete="off" spellcheck="false" aria-label="Command"></div>
-      <div class="fvc-output" aria-live="polite"></div>
-      <div class="fvc-hint">Enter: run · Tab: complete · ↑/↓: history · Esc: close</div>
+      <div class="fvc-input-row"><label for="fvc-command-input" aria-hidden="true">:</label><input id="fvc-command-input" autocomplete="off" spellcheck="false"></div>
+      <div class="fvc-output" role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false"></div>
+      <div id="fvc-command-hint" class="fvc-hint"></div>
     `;
     document.documentElement.append(panel);
     input = panel.querySelector("input");
     output = panel.querySelector(".fvc-output");
+    input.setAttribute("aria-label", localizedMessage("commandInputLabel", "Command"));
+    panel.querySelector(".fvc-hint").textContent = localizedMessage(
+      "commandPromptHint",
+      "Enter: run · Tab: complete · ↑/↓: history · Esc: close",
+    );
+    panel.setAttribute("aria-describedby", "fvc-command-hint");
     input.addEventListener("keydown", handlePromptKeydown);
     input.addEventListener("input", () => {
       lastCompletion = "";
     });
+    focusTrapHandler = (event) => {
+      if (panel && !panel.contains(event.target)) {
+        event.stopPropagation();
+        input?.focus();
+      }
+    };
+    document.addEventListener("focusin", focusTrapHandler, true);
     input.focus();
   }
 
@@ -440,8 +479,10 @@
       runCommand();
     } else if (event.key === "Tab") {
       event.preventDefault();
-      await stateReady;
-      completeInput();
+      if (!event.shiftKey) {
+        await stateReady;
+        completeInput();
+      }
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       await stateReady;
