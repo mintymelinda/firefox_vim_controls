@@ -18,12 +18,29 @@
     { name: "pin", status: "implemented", summary: "Pin matching tabs" },
     { name: "unpin", status: "implemented", summary: "Unpin matching tabs" },
     { name: "discard", status: "implemented", summary: "Discard matching tabs" },
-    { name: "windows", status: "planned", summary: "List browser windows" },
-    { name: "window", status: "planned", summary: "Switch to a browser window" },
-    { name: "new_window", status: "planned", summary: "Open a new browser window" },
-    { name: "sort", status: "planned", summary: "Sort tabs" },
-    { name: "reverse", status: "planned", summary: "Reverse tab order" },
-    { name: "shuffle", status: "planned", summary: "Shuffle tab order" },
+    { name: "windows", status: "implemented", summary: "List normal browser windows" },
+    {
+      name: "window",
+      status: "implemented",
+      summary: "Focus a numbered, next, or previous window",
+    },
+    { name: "new_window", status: "implemented", summary: "Open a new normal browser window" },
+    { name: "fullscreen", status: "implemented", summary: "Fullscreen the focused window" },
+    { name: "minimize", status: "implemented", summary: "Minimize the focused window" },
+    { name: "maximize", status: "implemented", summary: "Maximize the focused window" },
+    {
+      name: "merge",
+      status: "implemented",
+      summary: "Merge normal windows into the focused window",
+    },
+    { name: "split", status: "implemented", summary: "Move matching tabs into a new window" },
+    {
+      name: "sort",
+      status: "implemented",
+      summary: "Sort matching tabs by domain, title, URL, or recent activity",
+    },
+    { name: "reverse", status: "implemented", summary: "Reverse matching tab order" },
+    { name: "shuffle", status: "implemented", summary: "Shuffle matching tab order" },
   ];
 
   const registry = {

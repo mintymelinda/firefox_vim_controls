@@ -16,7 +16,7 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. Do
 
 ## Current status
 
-Phase 1 command mode is implemented. Phase 2 includes read-only tab inspection and tab-changing commands. Window organization remains in Phase 3.
+Phase 1 and Phase 2 command foundations are implemented. Phase 3 adds normal-window management and tab organization.
 
 ## Keyboard behaviour
 
@@ -42,6 +42,14 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:mute [selector]` / `:unmute [selector]` — change tab audio state.
 - `:pin [selector]` / `:unpin [selector]` — pin or unpin matching tabs.
 - `:discard [selector] [--confirm]` — unload inactive matching tabs; active tabs are skipped.
+- `:windows` — list normal browser windows and their active tabs.
+- `:window 2|next|previous` — focus a numbered or adjacent normal window.
+- `:new_window` — create a new normal browser window.
+- `:fullscreen`, `:minimize`, `:maximize` — change the focused window state.
+- `:merge [window-number]` — merge all other normal windows, or one numbered window, into the focused window.
+- `:split [selector]` — move matching tabs into a new window.
+- `:sort domain|title|url|recent [selector]` — sort matching tabs within each window.
+- `:reverse [selector]` / `:shuffle [selector]` — reorder matching tabs within each window. Pinned and unpinned tabs are reordered separately.
 
 Selectors include `all`, `active`, `pinned`, `audible`, `duplicates`, `twitch`, `youtube`, `audible`, `domain:example.com`, and `window:2`. Domain matching includes subdomains but does not match lookalike suffixes such as `twitch.tv.evil.example`. Private windows are excluded from these commands.
 
