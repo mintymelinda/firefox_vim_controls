@@ -79,7 +79,7 @@
         value === "left" ? tab.index < activeTab.index : tab.index > activeTab.index,
       );
     }
-    const numericSelector = /^(?:tab:)?(\\d+)$/.exec(value);
+    const numericSelector = /^(?:tab:)?(\d+)$/.exec(value);
     if (numericSelector) {
       const oneBasedIndex = Number(numericSelector[1]);
       if (!Number.isSafeInteger(oneBasedIndex) || oneBasedIndex < 1) {
