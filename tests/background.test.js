@@ -50,6 +50,7 @@ function createBrowserApi() {
     moved: [],
     windowUpdates: [],
     windowCreates: [],
+    windowRemoves: [],
     tabCreates: [],
     wentBack: [],
     wentForward: [],
@@ -80,6 +81,11 @@ function createBrowserApi() {
       update: async (id, properties) => {
         calls.windowUpdates.push({ id, properties });
         return { id, ...properties };
+      },
+      remove: async (id) => {
+        calls.windowRemoves.push(id);
+        const index = windows.findIndex((window) => window.id === id);
+        if (index >= 0) windows.splice(index, 1);
       },
       create: async ({ tabId, url, focused } = {}) => {
         const id = nextWindowId++;
@@ -113,7 +119,13 @@ function createBrowserApi() {
             window.tabs.map((tab) => ({ ...tab, incognito: window.incognito, windowId: window.id })),
           ),
       sendMessage: async (id, message) => calls.stateBroadcasts.push({ id, message }),
-      remove: async (id) => calls.removed.push(id),
+      remove: async (ids) => {
+        const values = Array.isArray(ids) ? ids : [ids];
+        calls.removed.push(...values);
+        for (const window of windows) {
+          window.tabs = window.tabs.filter((tab) => !values.includes(tab.id));
+        }
+      },
       update: async (id, properties) => {
         calls.updated.push({ id, properties });
         for (const window of windows) {
