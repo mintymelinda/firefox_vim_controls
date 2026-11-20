@@ -192,10 +192,7 @@
     }
     const [action, ...nameParts] = command.args;
     const name = nameParts.join(" ").trim();
-    if (
-      (action === "list" || action === "restore") &&
-      nameParts.length > 0
-    ) {
+    if ((action === "list" || action === "restore") && nameParts.length > 0) {
       throw new Error("This session action does not accept a name.");
     }
     if (["save", "load", "append", "delete"].includes(action) && nameParts.length !== 1) {
