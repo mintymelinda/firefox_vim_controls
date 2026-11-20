@@ -9,7 +9,6 @@
     return;
   }
 
-  const HISTORY_LIMIT = 100;
   const STORAGE_KEYS = ["fvcCommandHistory", "fvcCommandAliases", "fvcCommandPreferences"];
   const history = [];
   let aliases = Object.create(null);
@@ -22,7 +21,10 @@
 
   const commandNames = globalThis.VimCommandRegistry.names();
   const privateContext = Boolean(globalThis.browser?.extension?.inIncognitoContext);
-  const storage = privateContext ? null : globalThis.browser?.storage?.local;
+  const availableStorage = globalThis.browser?.storage?.local;
+  const storage = globalThis.VimCommandState.canPersistState(privateContext, availableStorage)
+    ? availableStorage
+    : null;
 
   const stateReady = (async () => {
     if (!storage) return;
