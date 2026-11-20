@@ -111,7 +111,10 @@ test("normal snapshots exclude private windows and incognito tabs regardless of 
     snapshot.flatMap((window) => window.tabs).map((tab) => tab.url),
     ["https://public.example/"],
   );
-  assert.doesNotMatch(JSON.stringify(snapshot), /private\.example|private-in-normal\.example|Private secret title/);
+  assert.doesNotMatch(
+    JSON.stringify(snapshot),
+    /private[.]example|private-in-normal[.]example|Private secret title/,
+  );
 });
 
 test("private session and workspace saves never persist private URL or title data", async () => {
@@ -168,8 +171,9 @@ test("private state reads return an empty transient state without reading storag
   assert.deepEqual(api.calls.gets, []);
   assert.deepEqual(api.calls.sets, []);
   assert.equal(api.calls.windowGets, 0);
-  assert.deepEqual(api.storageData, before);
-});
+    assert.deepEqual(api.storageData, before);
+  },
+);
 
 test("private state writes are acknowledged as transient and never reach storage", async () => {
   const api = createBrowserApi();
@@ -220,10 +224,12 @@ test("private macro get, set, and delete are all rejected before storage access"
   assert.deepEqual(api.calls.sets, []);
   assert.equal(api.calls.windowGets, 0);
   assert.deepEqual(api.storageData, before);
-  assert.doesNotMatch(JSON.stringify(api.storageData.fvcCommandMacros), /private\\.example/);
+  assert.doesNotMatch(JSON.stringify(api.storageData.fvcCommandMacros), /private[.]example/);
 });
 
-test("private session, workspace, and undo commands are rejected without storage or browser access", async () => {
+test(
+  "private session, workspace, and undo commands are rejected without storage or browser access",
+  async () => {
   const api = createBrowserApi();
   const before = structuredClone(api.storageData);
   const browser = browserApiParts(api);
