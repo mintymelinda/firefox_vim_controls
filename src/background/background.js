@@ -163,6 +163,25 @@
     }
     const restored = await restoreTabPositions(entry.positions, browserApi);
     failures.push(...restored.failures);
+    if (!failures.length && entry.cleanupWindowIds?.length && browserApi.windows.remove) {
+      const windows = await getNormalWindowSnapshot(browserApi);
+      for (const id of entry.cleanupWindowIds) {
+        const window = windows.find((item) => item.id === id);
+        if (
+          window &&
+          (window.tabs.length === 0 ||
+            (window.tabs.length === 1 && ["about:blank", "about:newtab"].includes(window.tabs[0].url)))
+        ) {
+          try {
+            await browserApi.windows.remove(id);
+          } catch (error) {
+            failures.push(
+              `Window #${id}: ${error instanceof Error ? error.message : "could not close empty window"}`,
+            );
+          }
+        }
+      }
+    }
     if (failures.length) {
       return {
         ok: false,
@@ -1075,7 +1094,16 @@
             await moveTabsToWindow(remaining, created.id, browserApi);
           } catch (error) {
             const rollback = await restoreTabPositions(positions, browserApi);
-            if (rollback.failures.length) pushUndo({ type: "positions", positions, label: "move" });
+            if (rollback.failures.length) {
+              pushUndo({
+                type: "positions",
+                positions,
+                label: "move",
+                cleanupWindowIds: [created.id],
+              });
+            } else if (browserApi.windows.remove) {
+              await browserApi.windows.remove(created.id).catch(() => {});
+            }
             const message = error instanceof Error ? error.message : "move failed";
             return {
               ok: false,
@@ -1083,7 +1111,12 @@
             };
           }
         }
-        pushUndo({ type: "positions", positions, label: "move" });
+        pushUndo({
+          type: "positions",
+          positions,
+          label: "move",
+          cleanupWindowIds: [created.id],
+        });
         return {
           ok: true,
           output: [`Moved ${selected.length} tab(s) into new window ${created.id}.`],
