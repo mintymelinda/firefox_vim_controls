@@ -28,7 +28,7 @@ const server = createServer((request, response) => {
       <h1>Firefox Vim Controls fixture</h1>
       <label for="fixture-input">Editable test input</label>
       <input id="fixture-input" type="text" autocomplete="off">
-      <button type="button">Fixture button</button>
+      <button id="fixture-button" type="button">Fixture button</button>
     </main>
   </body>
 </html>`);
