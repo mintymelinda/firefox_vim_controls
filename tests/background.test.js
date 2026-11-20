@@ -532,3 +532,111 @@ test("rejects malformed command state messages", async () => {
     /Unexpected state message properties/,
   );
 });
+
+
+test("saves, lists, loads, appends, and restores named sessions", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { id: 1, incognito: false } };
+  const saved = await handleMessage(request("session", ["save", "work"]), api, selectors, sender);
+  assert.match(saved.output[0], /Saved session "work"/);
+  assert.equal(api.storageData.fvcSessions.work.snapshot.windows.length, 2);
+  assert.equal(api.storageData.fvcSessions.work.snapshot.windows[0].tabs.length, 2);
+  assert.equal(api.storageData.fvcLastSessionName, "work");
+
+  const listed = await handleMessage(request("session", ["list"]), api, selectors, sender);
+  assert.match(listed.output[0], /work — 2 window\(s\), 4 tab\(s\)/);
+
+  const loaded = await handleMessage(request("session", ["load", "work"]), api, selectors, sender);
+  assert.match(loaded.output[0], /2 new window\(s\)/);
+  assert.equal(api.calls.windowCreates.length, 2);
+  assert.equal(api.calls.tabCreates.length, 2);
+  assert.deepEqual(api.calls.windowUpdates.at(-1), {
+    id: 20,
+    properties: { focused: true },
+  });
+
+  api.calls.windowCreates.length = 0;
+  api.calls.tabCreates.length = 0;
+  const restored = await handleMessage(request("session", ["restore"]), api, selectors, sender);
+  assert.match(restored.output[0], /Loaded session "work"/);
+  assert.equal(api.calls.windowCreates.length, 2);
+
+  const appended = await handleMessage(request("session", ["append", "work"]), api, selectors, sender);
+  assert.match(appended.output[0], /Appended 4 tab\(s\)/);
+  assert.equal(api.calls.tabCreates.length, 4);
+  assert.equal(api.calls.tabCreates.every((tab) => tab.windowId === 10 && tab.active === false), true);
+  assert.deepEqual(api.calls.updated.at(-1).properties, { active: true });
+});
+
+test("deletes sessions and reports missing records", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("session", ["save", "work"]), api, selectors, sender);
+  const deleted = await handleMessage(request("session", ["delete", "work"]), api, selectors, sender);
+  assert.match(deleted.output[0], /Deleted session "work"/);
+  assert.deepEqual(Object.keys(api.storageData.fvcSessions), []);
+  assert.equal(api.storageData.fvcLastSessionName, "");
+  const missing = await handleMessage(request("session", ["load", "work"]), api, selectors, sender);
+  assert.match(missing.error, /No saved session named/);
+});
+
+test("creates, lists, switches, and renames workspaces", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const created = await handleMessage(request("workspace", ["create", "streaming"]), api, selectors, sender);
+  assert.match(created.output[0], /Created workspace "streaming"/);
+  const duplicate = await handleMessage(
+    request("workspace", ["create", "streaming"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.match(duplicate.error, /already exists/);
+
+  const listed = await handleMessage(request("workspace", ["list"]), api, selectors, sender);
+  assert.match(listed.output[0], /streaming — 2 window\(s\), 4 tab\(s\)/);
+
+  const switched = await handleMessage(
+    request("workspace", ["switch", "streaming"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.match(switched.output[0], /Opened workspace "streaming"/);
+  assert.equal(api.calls.windowCreates.length, 2);
+
+  const renamed = await handleMessage(
+    request("workspace", ["rename", "streaming", "studio"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.match(renamed.output[0], /Renamed workspace "streaming" to "studio"/);
+  assert.deepEqual(Object.keys(api.storageData.fvcWorkspaces), ["studio"]);
+});
+
+test("session and workspace commands never access storage from private tabs", async () => {
+  const api = createBrowserApi();
+  const beforeGets = api.calls.storageGets.length;
+  const beforeSets = api.calls.storageSets.length;
+  const sender = { tab: { id: 5, incognito: true } };
+  const session = await handleMessage(request("session", ["list"]), api, selectors, sender);
+  const workspace = await handleMessage(request("workspace", ["list"]), api, selectors, sender);
+  assert.match(session.error, /disabled in private browsing/);
+  assert.match(workspace.error, /disabled in private browsing/);
+  assert.equal(api.calls.storageGets.length, beforeGets);
+  assert.equal(api.calls.storageSets.length, beforeSets);
+});
+
+test("session restoration reports browser API failures without closing existing tabs", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await handleMessage(request("session", ["save", "work"]), api, selectors, sender);
+  api.windows.create = async () => {
+    throw new Error("window creation blocked");
+  };
+  const result = await handleMessage(request("session", ["load", "work"]), api, selectors, sender);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /window creation blocked/);
+  assert.deepEqual(api.calls.removed, []);
+});
