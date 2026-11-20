@@ -274,15 +274,27 @@ try {
   await runCommand(":count all", "2 tab(s) matched all.");
   await runCommand(":pin all", "2 of 2 tab(s) updated.");
   const pinnedTabs = await runCommand(":tabs", "[pinned]");
-  assert.match(pinnedTabs, /Firefox Vim Controls fixture — \/second/);
+  assert.match(pinnedTabs, /Firefox Vim Controls fixture — fixture:4173\/second/);
+  const pinnedLines = await executeScript(
+    sessionId,
+    "return Array.from(document.querySelectorAll('#fvc-command-panel .fvc-output')).slice(-2).map((line) => line.textContent)",
+  );
+  assert.equal(pinnedLines.length, 2);
+  assert.ok(pinnedLines.every((line) => line.includes("[pinned]")));
   const undonePin = await runCommand(":undo", "Undid pin.");
   assert.match(undonePin, /Undid pin\./);
-  const restoredTabs = await runCommand(":tabs", "Firefox Vim Controls fixture — \/second");
+  const restoredTabs = await runCommand(":tabs", "Firefox Vim Controls fixture — fixture:4173/second");
   assert.doesNotMatch(
     restoredTabs,
     /\[pinned\]/,
     "undo should restore the actual pinned state of both browser tabs",
   );
+  const restoredLines = await executeScript(
+    sessionId,
+    "return Array.from(document.querySelectorAll('#fvc-command-panel .fvc-output')).slice(-2).map((line) => line.textContent)",
+  );
+  assert.equal(restoredLines.length, 2);
+  assert.ok(restoredLines.every((line) => !line.includes("[pinned]")));
 
   await runCommand(
     ":open http://unrelated-fixture:4173/untouched new_tab",
@@ -304,8 +316,8 @@ try {
     "the unrelated-domain tab should remain in its original window",
   );
   assert.ok(
-    windowLines.some((line) => line.includes("Firefox Vim Controls fixture")),
-    "the selected fixture tabs should be grouped in the new window",
+    windowLines.some((line) => line.includes("2 tab(s)") && line.includes("Firefox Vim Controls fixture")),
+    "the two selected fixture tabs should be grouped in the new window",
   );
   await runCommand(":count all", "3 tab(s) matched all.");
   await runCommand(":count domain:fixture", "2 tab(s) matched domain:fixture");
