@@ -15,7 +15,7 @@ The minimum version is declared in `manifest.json` under `browser_specific_setti
 
 ## Automated verification matrix
 
-The Docker/Compose CI workflow runs formatting, lint, unit tests, build, deterministic ZIP packaging, and the same real-Firefox smoke suite against two pinned browser targets. Each browser runs with a disposable Selenium profile. The smoke suite exercises keyboard activation, editable-control safety, accessible prompt DOM semantics, focus entry/containment/restoration, bounded output, a background-command round-trip, and the `about:blank` injection boundary.
+The Docker/Compose CI workflow runs formatting, lint, unit tests, build, deterministic ZIP packaging, and the same real-Firefox smoke suite against two pinned browser targets. Each browser runs with a disposable Selenium profile. In addition to prompt activation/accessibility/focus/output checks, the browser suite exercises tab creation, pinning and undo, then moves a selected domain into a new window while verifying a different-domain tab remains in its original window. Node tests separately verify that private sender contexts cannot read or mutate persisted state and that private tabs are excluded from session/workspace snapshots.
 
 The following exact versions passed CI run [#153](https://github.com/mintymelinda/firefox_vim_controls/actions/runs/44816732952) on 2026-11-20:
 
@@ -29,7 +29,7 @@ The following exact versions passed CI run [#153](https://github.com/mintymelind
 
 These are pinned, point-in-time CI results. They verify the tested Firefox 115.45.0 ESR and 159.0.1 Stable builds; they do not establish that every intervening or future Firefox release has been tested. The minimum manifest declaration remains Firefox 115.0.
 
-The browser fixture is a focused regression suite, not a full end-to-end certification of every command or browser surface. The release checklist still requires manual verification of privileged Firefox pages, broader command workflows, and real screen-reader behavior. DOM assertions do not prove what assistive technology announces.
+The browser fixture is a representative regression suite, not a full end-to-end certification of every command or browser surface. Private-context tests exercise the extension's background message boundary with incognito sender metadata; they do not launch a real private Firefox window or verify the user's private-browsing permission setting. The release checklist still requires manual verification of privileged Firefox pages, the complete command catalogue, private-window behavior in the installed release, and real screen-reader behavior. DOM assertions do not prove what assistive technology announces.
 
 ## Known platform boundaries
 
@@ -42,7 +42,7 @@ The browser fixture is a focused regression suite, not a full end-to-end certifi
 ## Remaining manual release checks
 
 - [ ] Verify Firefox internal pages (for example `about:addons`) are not modified. WebDriver cannot directly navigate to these privileged pages.
-- [ ] Run representative tab, window, navigation, session, macro, and undo workflows in the release build.
-- [ ] Verify private-window operations remain isolated and behave according to the user's private-browsing permission.
+- [ ] Run the full tab, window, navigation, session, macro, and undo workflows in the release build; automation covers representative paths only.
+- [ ] Verify a real private window remains isolated and behaves according to the user's private-browsing permission.
 - [ ] Verify keyboard-only use and actual announcements with a screen reader.
 - [ ] Repeat the focused smoke checks on the AMO-signed artifact in the release channel when preparing a production release.
