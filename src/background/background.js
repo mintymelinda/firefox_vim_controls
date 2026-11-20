@@ -481,7 +481,6 @@
     return { ok: false, error: `Command is not available: ${name}` };
   }
 
-
   const URL_ALIASES = {
     twitch: "https://www.twitch.tv/",
     youtube: "https://www.youtube.com/",
@@ -558,7 +557,14 @@
     return { ok: true, output: [`Opened ${url} in new tab #${created.id}.`] };
   }
 
-  async function executeNavigationCommand(command, tabs, windows, focusedWindow, browserApi, selectors) {
+  async function executeNavigationCommand(
+    command,
+    tabs,
+    windows,
+    focusedWindow,
+    browserApi,
+    selectors,
+  ) {
     const confirmed = command.args.includes("--confirm");
     const args = command.args.filter((arg) => arg !== "--confirm");
     if (command.name === "home" && args.length) {
@@ -602,7 +608,10 @@
     }[command.name];
     return {
       ok: result.ok,
-      output: [`${verb} ${selected.length - failures.length} of ${selected.length} tab(s).`, ...failures],
+      output: [
+        `${verb} ${selected.length - failures.length} of ${selected.length} tab(s).`,
+        ...failures,
+      ],
     };
   }
 
