@@ -30,19 +30,14 @@
     if (!storage) return;
     try {
       const stored = await storage.get(STORAGE_KEYS);
-      preferences = globalThis.VimCommandState.normalizePreferences(
-        stored.fvcCommandPreferences,
-      );
+      preferences = globalThis.VimCommandState.normalizePreferences(stored.fvcCommandPreferences);
       history.push(
         ...globalThis.VimCommandState.normalizeHistory(
           stored.fvcCommandHistory,
           preferences.historyLimit,
         ),
       );
-      aliases = globalThis.VimCommandState.normalizeAliases(
-        stored.fvcCommandAliases,
-        commandNames,
-      );
+      aliases = globalThis.VimCommandState.normalizeAliases(stored.fvcCommandAliases, commandNames);
       historyIndex = history.length;
     } catch {
       // The prompt remains usable if extension storage is unavailable.
@@ -118,11 +113,7 @@
     const tokenMatch = value.match(/\S*$/);
     const token = tokenMatch ? tokenMatch[0] : "";
     const prefix = value.slice(0, value.length - token.length);
-    const matches = globalThis.VimCommandState.completionCandidates(
-      value,
-      commandNames,
-      aliases,
-    );
+    const matches = globalThis.VimCommandState.completionCandidates(value, commandNames, aliases);
     if (matches.length === 1) {
       input.value = `${prefix}${matches[0]} `;
     } else if (matches.length > 1) {
@@ -148,7 +139,9 @@
     const entries = history.slice(-count);
     appendOutput(
       entries.length
-        ? entries.map((entry, index) => `${history.length - entries.length + index + 1}: ${entry}`).join("\n")
+        ? entries
+            .map((entry, index) => `${history.length - entries.length + index + 1}: ${entry}`)
+            .join("\n")
         : "Command history is empty.",
     );
   }
@@ -215,7 +208,10 @@
 
     if (command.name === "set") {
       if (command.args.length !== 2) {
-        appendOutput("Preference syntax: :set history_limit 100 | search_engine duckduckgo|google|bing.", "error");
+        appendOutput(
+          "Preference syntax: :set history_limit 100 | search_engine duckduckgo|google|bing.",
+          "error",
+        );
         return true;
       }
       try {
@@ -277,10 +273,10 @@
         const command = globalThis.VimCommandState.expandAlias(parsedCommand, aliases);
         const definition = globalThis.VimCommandRegistry.get(command.name);
         if (!definition || definition.status !== "implemented") {
-          const suggestions = globalThis.VimCommandSuggestions.suggestCommands(
-            command.name,
-            [...commandNames, ...Object.keys(aliases)],
-          );
+          const suggestions = globalThis.VimCommandSuggestions.suggestCommands(command.name, [
+            ...commandNames,
+            ...Object.keys(aliases),
+          ]);
           const hint = suggestions.length
             ? ` Did you mean ${suggestions.map((name) => `:${name}`).join(", ")}?`
             : " Try :help.";
@@ -298,7 +294,9 @@
             .map((item) => `:${item.name}`);
           appendOutput(`Available: ${available.join(", ")}`);
           appendOutput(`Planned: ${planned.join(", ")}`);
-          appendOutput("Examples: :tabs twitch · :alias stream move twitch, new_window · :search cats");
+          appendOutput(
+            "Examples: :tabs twitch · :alias stream move twitch, new_window · :search cats",
+          );
         } else if (command.name === "version") {
           appendOutput("Firefox Vim Controls v0.1.0");
         } else if (command.name === "clear") {
