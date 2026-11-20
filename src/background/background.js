@@ -28,7 +28,6 @@
     "search",
     "back",
     "forward",
-    "refresh",
     "home",
     "session",
     "workspace",
@@ -39,9 +38,6 @@
   const undoStack = [];
   const MAX_UNDO_ENTRIES = 20;
   const UNDO_BARRIERS = new Set([
-    "close",
-    "reload",
-    "discard",
     "open",
     "search",
     "back",
@@ -986,6 +982,7 @@
       if (removable.length > 1 && !confirmed) {
         return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, removable, windows) };
       }
+      clearUndoStack();
       const result = await performPerTab(removable, (id) => browserApi.tabs.remove(id));
       if (protectedCount) result.output.push(`Kept one tab open in ${protectedCount} window(s).`);
       return result;
@@ -996,6 +993,7 @@
       if (selected.length > 1 && !confirmed) {
         return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, selected, windows) };
       }
+      clearUndoStack();
       return performPerTab(selected, (id) => browserApi.tabs.reload(id));
     }
 
@@ -1011,6 +1009,7 @@
       if (eligible.length > 1 && !confirmed) {
         return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, eligible, windows) };
       }
+      clearUndoStack();
       const result = await performPerTab(eligible, (id) => browserApi.tabs.discard(id));
       if (skipped) result.output.push(`Skipped ${skipped} active or already-discarded tab(s).`);
       return result;
@@ -1264,6 +1263,7 @@
       home: (id) => browserApi.tabs.update(id, { url: "about:home" }),
     };
     const operation = operations[command.name];
+    if (command.name === "refresh") clearUndoStack();
     if (!operation) {
       return { ok: false, error: `Navigation command is unavailable: ${command.name}` };
     }
