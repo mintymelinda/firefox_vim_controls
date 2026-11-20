@@ -16,10 +16,10 @@ RUN set -eux; \
     printf '%s  %s\n' "$checksum" "/tmp/${FIREFOX_ARCHIVE}" | sha256sum --check -; \
     tar -xjf "/tmp/${FIREFOX_ARCHIVE}" -C /opt; \
     rm -f "/tmp/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS; \
-    apt-get purge -y --auto-remove curl bzip2; \
+    apt-get purge -y --auto-remove bzip2; \
     rm -rf /var/lib/apt/lists/*
 
-ENV SE_BROWSER_BINARY_LOCATION_FIREFOX=/opt/firefox/firefox
+ENV SE_BROWSER_BINARY_LOCATION=/opt/firefox/firefox
 ENV SE_NODE_BROWSER_VERSION=115.45.0
 
 USER seluser
