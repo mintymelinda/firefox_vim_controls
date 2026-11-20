@@ -28,6 +28,7 @@
     "search",
     "back",
     "forward",
+    "refresh",
     "home",
     "session",
     "workspace",
@@ -42,7 +43,6 @@
     "search",
     "back",
     "forward",
-    "refresh",
     "home",
     "new_window",
     "window",
@@ -1437,7 +1437,7 @@
     if (sender.tab?.incognito && ["session", "workspace", "undo"].includes(command.name)) {
       return {
         ok: false,
-        error: "Session and workspace commands are disabled in private browsing.",
+        error: "Session, workspace, and undo commands are disabled in private browsing.",
       };
     }
     if (!IMPLEMENTED_COMMANDS.has(command.name)) {
