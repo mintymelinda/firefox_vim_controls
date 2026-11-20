@@ -61,6 +61,13 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:workspace switch name` — open a workspace in new normal window(s), leaving existing windows untouched.
 - `:workspace list` / `:workspace rename old new` — list or rename saved workspaces.
 
+- `:macro define name && command [&& command ...]` — save a bounded sequence of parsed commands.
+- `:macro run name` — expand and execute a saved macro through the normal command pipeline.
+- `:macro list` / `:macro delete name` — list or remove macros.
+- `:undo` — reverse the last supported move, merge/split, ordering, pin, unpin, mute, or unmute operation.
+
+Command chains separated by `&&` execute sequentially and stop at the first error. Confirmation previews stop a chain; rerun the previewed operation separately with `--confirm`. Macros contain parsed, registered commands only (no arbitrary code, nested macros, or undo commands). Undo is bounded to the most recent 20 reversible operations and is cleared by irreversible navigation, close, reload, discard, session/workspace, and window-state operations. Closing tabs and reloading pages cannot be undone.
+
 Sessions and workspaces are local snapshots of HTTP(S) tabs only. They preserve window grouping, tab order, pinned state, and the active tab. Firefox internal pages, extension pages, blank tabs, and URLs with embedded credentials are excluded. Each collection is bounded (20 sessions, 10 workspaces, up to 20 windows and 300 tabs per snapshot), with an 8 MiB aggregate storage budget. Private-window commands are rejected and private tabs are never saved.
 
 Command history, aliases, and preferences are stored locally with Firefox extension storage. They are kept in memory only in private browsing contexts and are never written to persistent storage there. Tab completion includes command names, aliases, selectors, destinations, and preference values.
