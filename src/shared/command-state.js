@@ -181,10 +181,10 @@
       candidates = [...commandNames, ...Object.keys(aliases)];
     } else if (parts[0] === "alias" && parts.length >= 2) {
       candidates = commandNames;
-    } else if (parts[0] === "set" && parts.length <= 2) {
-      candidates = ["history_limit", "search_engine"];
     } else if (parts[0] === "set" && parts[1] === "search_engine") {
       candidates = Object.keys(SEARCH_ENGINES);
+    } else if (parts[0] === "set" && parts.length <= 2) {
+      candidates = ["history_limit", "search_engine"];
     } else if (["open", "search"].includes(parts[0])) {
       candidates = ["twitch", "youtube", "github", ...DESTINATION_COMPLETIONS];
     } else {
