@@ -403,7 +403,7 @@
         commands.push(...response.commands);
       }
 
-      await globalThis.VimCommandChain.execute(commands, async (parsedCommand) => {
+      await globalThis.VimCommandChain.executeChain(commands, async (parsedCommand) => {
         const command = globalThis.VimCommandState.expandAlias(parsedCommand, aliases);
         const definition = globalThis.VimCommandRegistry.get(command.name);
         if (!definition || definition.status !== "implemented") {
