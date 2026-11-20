@@ -1025,7 +1025,6 @@ test("creates private windows only after Firefox grants private access", async (
   assert.equal((await api.windows.getAll()).at(-1).incognito, true);
 });
 
-
 test("closes and moves relative to the active tab in the focused window", async () => {
   const sender = { tab: { incognito: false } };
   const leftApi = createBrowserApi();
@@ -1088,12 +1087,7 @@ test("closes blank and discarded tabs through their selectors", async () => {
 
   const windows = await api.windows.getAll();
   windows[0].tabs.find((tab) => tab.id === 2).discarded = true;
-  const discarded = await handleMessage(
-    request("close", ["discarded"]),
-    api,
-    selectors,
-    sender,
-  );
+  const discarded = await handleMessage(request("close", ["discarded"]), api, selectors, sender);
   assert.equal(discarded.ok, true);
   assert.ok(api.calls.removed.includes(2));
 });
