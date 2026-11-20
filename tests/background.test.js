@@ -10,6 +10,7 @@ const selectors = require("../src/shared/selectors.js");
 require("../src/shared/registry.js");
 require("../src/shared/command-state.js");
 require("../src/shared/session-state.js");
+require("../src/shared/macro-state.js");
 
 function makeWindows() {
   return [
