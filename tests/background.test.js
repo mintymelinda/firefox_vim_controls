@@ -572,6 +572,7 @@ test("saves, lists, loads, appends, and restores named sessions", async () => {
   const restored = await handleMessage(request("session", ["restore"]), api, selectors, sender);
   assert.match(restored.output[0], /Loaded session "work"/);
   assert.equal(api.calls.windowCreates.length, 2);
+  api.calls.tabCreates.length = 0;
 
   const appended = await handleMessage(request("session", ["append", "work"]), api, selectors, sender);
   assert.match(appended.output[0], /Appended 4 tab\(s\)/);
