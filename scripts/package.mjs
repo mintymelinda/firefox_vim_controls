@@ -32,7 +32,15 @@ export function createZip(entries) {
   );
 
   for (const entry of sorted) {
-    const name = Buffer.from(entry.name.replaceAll("\\", "/"), "utf8");
+    const normalizedName = entry.name.replaceAll("\\\\", "/");
+    if (
+      !normalizedName ||
+      normalizedName.startsWith("/") ||
+      normalizedName.split("/").includes("..")
+    ) {
+      throw new Error(`Invalid package path: ${entry.name}`);
+    }
+    const name = Buffer.from(normalizedName, "utf8");
     const data = Buffer.isBuffer(entry.data) ? entry.data : Buffer.from(entry.data);
     const compressed = deflateRawSync(data, { level: 9 });
     const checksum = crc32(data);
