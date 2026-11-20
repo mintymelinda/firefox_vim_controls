@@ -18,10 +18,7 @@ const commandNames = [
 ];
 
 test("normalizes and bounds persistent command history", () => {
-  assert.deepEqual(
-    state.normalizeHistory(["one", null, "", "two", "three"], 2),
-    ["two", "three"],
-  );
+  assert.deepEqual(state.normalizeHistory(["one", null, "", "two", "three"], 2), ["two", "three"]);
   assert.deepEqual(state.appendHistory(["one"], "one", 10), ["one"]);
   assert.deepEqual(state.appendHistory(["one"], "two", 2), ["one", "two"]);
   assert.deepEqual(state.appendHistory(["one", "two"], "three", 2), ["two", "three"]);
@@ -41,12 +38,7 @@ test("validates aliases and refuses to shadow commands or target local alias com
     /implemented command/,
   );
   assert.throws(
-    () =>
-      state.createAlias(
-        "move",
-        { name: "tabs", args: [], destination: [] },
-        commandNames,
-      ),
+    () => state.createAlias("move", { name: "tabs", args: [], destination: [] }, commandNames),
     /cannot shadow/,
   );
 });
@@ -67,10 +59,8 @@ test("creates and expands structured aliases without evaluating command text", (
     },
   );
   assert.deepEqual(
-    state.expandAlias(
-      { name: "stream", args: [], destination: ["current_window"] },
-      aliases,
-    ).destination,
+    state.expandAlias({ name: "stream", args: [], destination: ["current_window"] }, aliases)
+      .destination,
     ["current_window"],
   );
 });
@@ -99,14 +89,14 @@ test("validates preferences and builds encoded search URLs", () => {
     historyLimit: 100,
     searchEngine: "duckduckgo",
   });
-  assert.deepEqual(
-    state.updatePreference({}, "history_limit", "250"),
-    { historyLimit: 250, searchEngine: "duckduckgo" },
-  );
-  assert.deepEqual(
-    state.updatePreference({}, "search_engine", "google"),
-    { historyLimit: 100, searchEngine: "google" },
-  );
+  assert.deepEqual(state.updatePreference({}, "history_limit", "250"), {
+    historyLimit: 250,
+    searchEngine: "duckduckgo",
+  });
+  assert.deepEqual(state.updatePreference({}, "search_engine", "google"), {
+    historyLimit: 100,
+    searchEngine: "google",
+  });
   assert.throws(() => state.updatePreference({}, "history_limit", "5"), /10 to 500/);
   assert.throws(() => state.updatePreference({}, "search_engine", "unknown"), /duckduckgo/);
   const searchUrl = new URL(state.buildSearchUrl("cats & dogs", "google"));
