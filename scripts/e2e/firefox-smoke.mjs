@@ -97,6 +97,15 @@ try {
   });
   assert.ok(installedId, "development extension should install temporarily");
 
+  // Exercise the about:blank injection boundary before opening or moving tabs/windows.
+  await request("POST", `/session/${sessionId}/url`, { url: "about:blank" });
+  await delay(500);
+  assert.equal(
+    await findElement(sessionId, "#fvc-command-panel"),
+    null,
+    "about:blank must not receive the content-script prompt without an explicit match-about-blank opt-in",
+  );
+
   await request("POST", `/session/${sessionId}/url`, { url: fixtureUrl });
   await waitFor("fixture page title", async () => {
     return (await request("GET", `/session/${sessionId}/title`)) === "Firefox Vim Controls fixture";
@@ -210,6 +219,26 @@ try {
   );
 
   const commandInput = await findElement(sessionId, "#fvc-command-panel input");
+
+  async function runCommand(command, expectedOutput) {
+    await sendKeys(sessionId, commandInput, command);
+    await sendKeys(sessionId, commandInput, "\uE007");
+    const output = await waitFor(`command response for ${command}`, async () => {
+      const text = await executeScript(
+        sessionId,
+        "return document.querySelector('#fvc-command-panel .fvc-output')?.lastElementChild?.textContent || ''",
+      );
+      return text.includes(expectedOutput) ? text : null;
+    });
+    await waitFor(`command input reset after ${command}`, async () =>
+      executeScript(
+        sessionId,
+        "return document.querySelector('#fvc-command-panel input').value === ''",
+      ),
+    );
+    return output;
+  }
+
   await sendKeys(sessionId, commandInput, ":tabs");
   await sendKeys(sessionId, commandInput, "\uE007");
   const output = await waitFor("background command response", async () => {
@@ -253,22 +282,72 @@ try {
     "prompt output should retain no more than 200 entries",
   );
 
+  await runCommand(
+    ":open http://fixture:4173/second, new_tab",
+    "Opened http://fixture:4173/second in new tab",
+  );
+  await delay(500);
+  await runCommand(":count all", "2 tab(s) matched all.");
+  await runCommand(":pin all", "2 of 2 tab(s) updated.");
+  const pinnedTabs = await runCommand(":tabs", "[pinned]");
+  assert.match(pinnedTabs, /Firefox Vim Controls fixture — fixture:4173\/second/);
+  const pinnedLines = await executeScript(
+    sessionId,
+    "return Array.from(document.querySelectorAll('#fvc-command-panel .fvc-output')).slice(-2).map((line) => line.textContent)",
+  );
+  assert.equal(pinnedLines.length, 2);
+  assert.ok(pinnedLines.every((line) => line.includes("[pinned]")));
+  const undonePin = await runCommand(":undo", "Undid pin.");
+  assert.match(undonePin, /Undid pin\./);
+  const restoredTabs = await runCommand(
+    ":tabs",
+    "Firefox Vim Controls fixture — fixture:4173/second",
+  );
+  assert.doesNotMatch(
+    restoredTabs,
+    /\[pinned\]/,
+    "undo should restore the actual pinned state of both browser tabs",
+  );
+  const restoredLines = await executeScript(
+    sessionId,
+    "return Array.from(document.querySelectorAll('#fvc-command-panel .fvc-output')).slice(-2).map((line) => line.textContent)",
+  );
+  assert.equal(restoredLines.length, 2);
+  assert.ok(restoredLines.every((line) => !line.includes("[pinned]")));
+
+  await runCommand(
+    ":open http://unrelated-fixture:4173/untouched, new_tab",
+    "Opened http://unrelated-fixture:4173/untouched in new tab",
+  );
+  await delay(500);
+  await runCommand(":move domain:fixture, new_window", "Moved 2 tab(s) into new window");
+  await runCommand(":windows", "Window ");
+  const windowLines = await executeScript(
+    sessionId,
+    "return Array.from(document.querySelectorAll('#fvc-command-panel .fvc-output')).slice(-2).map((line) => line.textContent)",
+  );
+  assert.equal(windowLines.length, 2, "the move should leave two normal browser windows");
+  assert.ok(
+    windowLines.some((line) => line.includes("unrelated-fixture:4173/untouched")),
+    "the unrelated-domain tab should remain in its original window",
+  );
+  assert.ok(
+    windowLines.some(
+      (line) => line.includes("2 tab(s)") && line.includes("Firefox Vim Controls fixture"),
+    ),
+    "the two selected fixture tabs should be grouped in the new window",
+  );
+  await runCommand(":count all", "3 tab(s) matched all.");
+  await runCommand(":count domain:fixture", "2 tab(s) matched domain:fixture");
+
   await sendKeys(sessionId, commandInput, "\uE00C");
   await waitFor(
     "prompt close after command",
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
   );
 
-  await request("POST", `/session/${sessionId}/url`, { url: "about:blank" });
-  await delay(500);
-  assert.equal(
-    await findElement(sessionId, "#fvc-command-panel"),
-    null,
-    "about:blank must not receive the content-script prompt without an explicit match-about-blank opt-in",
-  );
-
   console.log(
-    "Firefox browser smoke tests passed (activation, editable safety, accessible semantics, focus containment/restoration, output retention, command round-trip, about:blank boundary).",
+    "Firefox browser smoke tests passed (prompt accessibility/focus, output retention, tab creation/pinning/undo, cross-window selection isolation, command round-trip, about:blank boundary).",
   );
 } finally {
   if (sessionId) {

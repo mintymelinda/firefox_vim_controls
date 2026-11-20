@@ -15,6 +15,10 @@ services:
       dockerfile: Dockerfile
     working_dir: /workspace
     command: node scripts/e2e/fixture-server.mjs
+    networks:
+      default:
+        aliases:
+          - unrelated-fixture
     healthcheck:
       test:
         - CMD
