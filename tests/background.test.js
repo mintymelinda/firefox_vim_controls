@@ -967,7 +967,8 @@ test("confirmation previews stop destructive actions without clearing undo", asy
 
 test("lists audible and loading tabs from normal windows only", async () => {
   const api = createBrowserApi();
-  api.windows.getAll()[1].tabs[0].status = "loading";
+  const windows = await api.windows.getAll();
+  windows[1].tabs[0].status = "loading";
   const sender = { tab: { incognito: false } };
 
   const audible = await handleMessage(request("audible"), api, selectors, sender);
