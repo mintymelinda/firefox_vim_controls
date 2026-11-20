@@ -208,18 +208,30 @@ try {
   });
   assert.match(output, /Firefox Vim Controls fixture/);
 
-  const retainedOutputCount = await executeScript(
+  const initialOutputCount = await executeScript(
     sessionId,
-    `const log = document.querySelector("#fvc-command-panel .fvc-output");
-     for (let index = 0; index < 205; index += 1) {
-       const line = document.createElement("div");
-       line.textContent = \`synthetic output \${index}\`;
-       log.append(line);
-     }
-     globalThis.VimPromptOutput.trimOutput(log, 200);
-     return log.childElementCount;`,
+    "return document.querySelector('#fvc-command-panel .fvc-output').childElementCount",
   );
-  assert.equal(retainedOutputCount, 200, "prompt output should retain no more than 200 entries");
+  for (let index = 0; index < 201; index += 1) {
+    await sendKeys(sessionId, commandInput, ":version");
+    await sendKeys(sessionId, commandInput, "\\uE007");
+    const expectedCount = Math.min(initialOutputCount + index + 1, 200);
+    await waitFor(`version output ${index + 1}`, async () => {
+      const state = await executeScript(
+        sessionId,
+        "return { count: document.querySelector('#fvc-command-panel .fvc-output').childElementCount, value: document.querySelector('#fvc-command-panel input').value }",
+      );
+      return state.count === expectedCount && state.value === "" ? state : null;
+    });
+  }
+  assert.equal(
+    await executeScript(
+      sessionId,
+      "return document.querySelector('#fvc-command-panel .fvc-output').childElementCount",
+    ),
+    200,
+    "prompt output should retain no more than 200 entries",
+  );
 
   await sendKeys(sessionId, commandInput, "\\uE00C");
   await waitFor(
