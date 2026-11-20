@@ -1027,20 +1027,31 @@ test("creates private windows only after Firefox grants private access", async (
 
 
 test("closes and moves relative to the active tab in the focused window", async () => {
-  const api = createBrowserApi();
   const sender = { tab: { incognito: false } };
-  const left = await handleMessage(request("close", ["left"]), api, selectors, sender);
+  const leftApi = createBrowserApi();
+  const left = await handleMessage(request("close", ["left"]), leftApi, selectors, sender);
   assert.equal(left.ok, true);
   assert.match(left.output[0], /No tabs matched/);
 
+  const otherApi = createBrowserApi();
+  const other = await handleMessage(request("close", ["other"]), otherApi, selectors, sender);
+  assert.equal(other.ok, true);
+  assert.ok(otherApi.calls.removed.includes(2));
+
+  const rightApi = createBrowserApi();
+  const right = await handleMessage(request("close", ["right"]), rightApi, selectors, sender);
+  assert.equal(right.ok, true);
+  assert.ok(rightApi.calls.removed.includes(2));
+
+  const moveApi = createBrowserApi();
   const moved = await handleMessage(
     request("move", ["right"], ["new_window"]),
-    api,
+    moveApi,
     selectors,
     sender,
   );
   assert.equal(moved.ok, true);
-  assert.ok(api.calls.moved.some((call) => call.ids === 2 || call.ids.includes(2)));
+  assert.ok(moveApi.calls.windowCreates.some((call) => call.tabId === 2));
 });
 
 test("accepts domain shorthand for close and move selectors", async () => {
@@ -1053,14 +1064,14 @@ test("accepts domain shorthand for close and move selectors", async () => {
     sender,
   );
   assert.equal(moved.ok, true);
-  assert.ok(api.calls.moved.some((call) => call.ids === 2 || call.ids.includes(2)));
+  assert.ok(api.calls.windowCreates.some((call) => call.tabId === 2));
 });
 
 test("closes blank and discarded tabs through their selectors", async () => {
   const api = createBrowserApi();
   const sender = { tab: { incognito: false } };
-  await api.tabs.create({ windowId: 10, url: "about:blank", active: false });
-  const blankId = api.calls.tabCreates.at(-1).id;
+  const blankTab = await api.tabs.create({ windowId: 10, url: "about:blank", active: false });
+  const blankId = blankTab.id;
   const blank = await handleMessage(request("close", ["empty"]), api, selectors, sender);
   assert.equal(blank.ok, true);
   assert.ok(api.calls.removed.includes(blankId));
