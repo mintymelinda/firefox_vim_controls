@@ -109,3 +109,25 @@ test("bounds snapshots by window and tab counts", () => {
     state.LIMITS.totalTabs,
   );
 });
+
+
+test("enforces an aggregate serialized storage budget", () => {
+  const largeUrl = `https://example.com/${"a".repeat(4000)}`;
+  const tabs = Array.from({ length: 100 }, () => ({
+    url: largeUrl,
+    title: "t".repeat(512),
+  }));
+  const largeSnapshot = {
+    windows: [{ tabs }, { tabs }],
+  };
+  const sessions = Object.fromEntries(
+    Array.from({ length: 10 }, (_, index) => [
+      `session${index}`,
+      { snapshot: largeSnapshot },
+    ]),
+  );
+  assert.throws(
+    () => state.assertStorageBudget(sessions, {}),
+    /8 MiB local storage budget/,
+  );
+});
