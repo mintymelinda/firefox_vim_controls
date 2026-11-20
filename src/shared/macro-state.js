@@ -36,7 +36,9 @@
         command.destination.length > LIMITS.arguments ||
         command.args.some(
           (argument) =>
-            typeof argument !== "string" || argument.length > LIMITS.argumentLength,
+            typeof argument !== "string" ||
+            argument.length > LIMITS.argumentLength ||
+            argument === "--confirm",
         ) ||
         command.destination.some(
           (destination) =>
