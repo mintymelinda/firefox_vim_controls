@@ -8,13 +8,16 @@ ARG FIREFOX_RELEASE_URL=https://ftp.mozilla.org/pub/firefox/releases/${FIREFOX_E
 
 RUN set -eux; \
     apt-get update; \
-    apt-get install --no-install-recommends -y ca-certificates curl bzip2; \
+    apt-get install --no-install-recommends -y ca-certificates curl bzip2 libdbus-glib-1-2; \
     curl --fail --silent --show-error --location "${FIREFOX_RELEASE_URL}/SHA256SUMS" -o /tmp/firefox-SHA256SUMS; \
     curl --fail --silent --show-error --location "${FIREFOX_RELEASE_URL}/linux-x86_64/en-US/${FIREFOX_ARCHIVE}" -o "/tmp/${FIREFOX_ARCHIVE}"; \
     checksum="$(awk -v path="linux-x86_64/en-US/${FIREFOX_ARCHIVE}" '$2 == path || $2 == "*" path { print $1 }' /tmp/firefox-SHA256SUMS)"; \
     test -n "$checksum"; \
     printf '%s  %s\n' "$checksum" "/tmp/${FIREFOX_ARCHIVE}" | sha256sum --check -; \
     tar -xjf "/tmp/${FIREFOX_ARCHIVE}" -C /opt; \
+    ldd /opt/firefox/firefox | tee /tmp/firefox-ldd; \
+    ! grep -q "not found" /tmp/firefox-ldd; \
+    /opt/firefox/firefox --version; \
     rm -f "/tmp/${FIREFOX_ARCHIVE}" /tmp/firefox-SHA256SUMS; \
     apt-get purge -y --auto-remove bzip2; \
     rm -rf /var/lib/apt/lists/*
