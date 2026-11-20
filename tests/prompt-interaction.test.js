@@ -230,6 +230,7 @@ async function createPromptHarness({ history = ["tabs", "help"], privateContext 
       });
       await Promise.resolve();
       await Promise.resolve();
+      await new Promise((resolve) => setImmediate(resolve));
       return input;
     },
   };
@@ -303,5 +304,7 @@ test("private prompt sessions do not read or write persistent command state", as
   const input = harness.document.getElementById("fvc-command-panel").input;
   input.value = ":tabs";
   await harness.key("Enter");
-  assert.equal(harness.messages.length, 0);
+  assert.equal(harness.messages.some((message) => message.type === "VIM_STATE_GET"), false);
+  assert.equal(harness.messages.some((message) => message.type === "VIM_STATE_SET"), false);
+  assert.equal(harness.messages.some((message) => message.type === "VIM_COMMAND_REQUEST"), true);
 });
