@@ -58,7 +58,11 @@
     { name: "unalias", status: "implemented", summary: "Remove a command alias" },
     { name: "aliases", status: "implemented", summary: "List saved command aliases" },
     { name: "set", status: "implemented", summary: "Update local command preferences" },
-    { name: "session", status: "implemented", summary: "Save, load, append, and manage named sessions" },
+    {
+      name: "session",
+      status: "implemented",
+      summary: "Save, load, append, and manage named sessions",
+    },
     { name: "workspace", status: "implemented", summary: "Create and switch named workspaces" },
   ];
 
