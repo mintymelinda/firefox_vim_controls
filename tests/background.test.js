@@ -37,7 +37,7 @@ function makeWindows() {
       id: 12,
       focused: false,
       incognito: true,
-      tabs: [{ id: 5, url: "https://private.example", title: "Private" }],
+      tabs: [{ id: 5, url: "https://private.example", title: "Private", audible: true, status: "loading" }],
     },
   ];
 }
@@ -67,11 +67,16 @@ function createBrowserApi() {
     stateBroadcasts: [],
   };
   const storageData = {};
+  const extension = {
+    allowed: false,
+    isAllowedIncognitoAccess: async () => extension.allowed,
+  };
   let nextWindowId = 20;
   let nextTabId = 50;
   return {
     calls,
     storageData,
+    extension,
     storage: {
       local: {
         get: async (keys) => {
@@ -95,7 +100,7 @@ function createBrowserApi() {
         const index = windows.findIndex((window) => window.id === id);
         if (index >= 0) windows.splice(index, 1);
       },
-      create: async ({ tabId, url, focused } = {}) => {
+      create: async ({ tabId, url, focused, incognito } = {}) => {
         const id = nextWindowId++;
         const tab = tabId
           ? windows.flatMap((window) => window.tabs).find((item) => item.id === tabId)
@@ -112,12 +117,12 @@ function createBrowserApi() {
         windows.push({
           id,
           focused: focused !== false,
-          incognito: false,
+          incognito: Boolean(incognito),
           state: "normal",
           tabs: createdTabs,
         });
         syncIndexes(windows.at(-1));
-        calls.windowCreates.push({ id, tabId, url, focused });
+        calls.windowCreates.push({ id, tabId, url, focused, incognito });
         return { id, tabs: createdTabs };
       },
     },
