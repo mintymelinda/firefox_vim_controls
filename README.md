@@ -47,6 +47,13 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:back [selector]` / `:forward [selector]` — navigate matching tabs through their history; defaults to the active tab.
 - `:refresh [selector] [--confirm]` — refresh matching tabs; defaults to the active tab and previews multi-tab refreshes.
 - `:home` — navigate the active tab to Firefox's `about:home` page.
+- `:history [count]` / `:clear_history` — inspect or clear saved command history.
+- `:alias name command [arguments] [, destination]` — save a structured alias, for example `:alias stream move twitch, new_window`.
+- `:aliases` / `:unalias name` — list or remove aliases.
+- `:set history_limit 100` — retain 10–500 commands (default 100).
+- `:set search_engine duckduckgo|google|bing` — choose the engine used by `:search` (default DuckDuckGo).
+
+Command history, aliases, and preferences are stored locally with Firefox extension storage. They are kept in memory only in private browsing contexts and are never written to persistent storage there. Tab completion includes command names, aliases, selectors, destinations, and preference values.
 - `:stop` remains planned: Firefox WebExtensions does not expose a reliable stop-loading method without injecting page script.
 - `:windows` — list normal browser windows and their active tabs.
 - `:window 2|next|previous` — focus a numbered or adjacent normal window.

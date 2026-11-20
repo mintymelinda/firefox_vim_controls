@@ -14,6 +14,12 @@ test("registry distinguishes implemented and planned commands", () => {
   assert.equal(registry.get("forward").status, "implemented");
   assert.equal(registry.get("refresh").status, "implemented");
   assert.equal(registry.get("home").status, "implemented");
+  assert.equal(registry.get("history").status, "implemented");
+  assert.equal(registry.get("clear_history").status, "implemented");
+  assert.equal(registry.get("alias").status, "implemented");
+  assert.equal(registry.get("unalias").status, "implemented");
+  assert.equal(registry.get("aliases").status, "implemented");
+  assert.equal(registry.get("set").status, "implemented");
   assert.equal(registry.get("stop").status, "planned");
 });
 

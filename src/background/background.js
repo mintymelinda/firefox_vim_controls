@@ -49,10 +49,11 @@
     if (typeof command.name !== "string" || !/^[a-z][a-z0-9_-]*$/.test(command.name)) {
       return "Invalid command name";
     }
+    const maxArgumentLength = command.name === "open" ? 8192 : 256;
     if (
       !Array.isArray(command.args) ||
       command.args.length > 32 ||
-      command.args.some((arg) => typeof arg !== "string" || arg.length > 256)
+      command.args.some((arg) => typeof arg !== "string" || arg.length > maxArgumentLength)
     ) {
       return "Invalid command arguments";
     }
@@ -64,6 +65,131 @@
       return "Invalid command destination";
     }
     return null;
+  }
+
+  const STATE_STORAGE_KEYS = ["fvcCommandHistory", "fvcCommandAliases", "fvcCommandPreferences"];
+
+  function validateStateMessage(message) {
+    if (!message || typeof message !== "object" || Array.isArray(message)) {
+      return "Invalid state message";
+    }
+    if (!["VIM_STATE_GET", "VIM_STATE_SET"].includes(message.type)) {
+      return "Invalid state message type";
+    }
+    if (Object.keys(message).some((key) => !["type", "state"].includes(key))) {
+      return "Unexpected state message properties";
+    }
+    if (message.type === "VIM_STATE_GET") {
+      return Object.hasOwn(message, "state") ? "Unexpected state payload" : null;
+    }
+    const state = message.state;
+    if (!state || typeof state !== "object" || Array.isArray(state)) {
+      return "Invalid state payload";
+    }
+    if (Object.keys(state).some((key) => !["history", "aliases", "preferences"].includes(key))) {
+      return "Unexpected state properties";
+    }
+    if (
+      !Array.isArray(state.history) ||
+      !state.aliases ||
+      typeof state.aliases !== "object" ||
+      Array.isArray(state.aliases) ||
+      !state.preferences ||
+      typeof state.preferences !== "object" ||
+      Array.isArray(state.preferences)
+    ) {
+      return "Invalid state values";
+    }
+    return null;
+  }
+
+  function emptyStoredState() {
+    return {
+      history: [],
+      aliases: {},
+      preferences: root.VimCommandState.normalizePreferences(),
+    };
+  }
+
+  function normalizeStoredState(state) {
+    const preferences = root.VimCommandState.normalizePreferences(state.fvcCommandPreferences);
+    return {
+      history: root.VimCommandState.normalizeHistory(
+        state.fvcCommandHistory,
+        preferences.historyLimit,
+      ),
+      aliases: {
+        ...root.VimCommandState.normalizeAliases(
+          state.fvcCommandAliases,
+          root.VimCommandRegistry.names(),
+        ),
+      },
+      preferences,
+    };
+  }
+
+  async function handleStateMessage(message, browserApi, sender = {}) {
+    const validationError = validateStateMessage(message);
+    if (validationError) return { ok: false, error: validationError };
+    const privateContext = Boolean(sender.tab?.incognito);
+    if (privateContext) {
+      return {
+        ok: true,
+        persisted: false,
+        ...(message.type === "VIM_STATE_GET" ? { state: emptyStoredState() } : {}),
+      };
+    }
+    const storage = browserApi?.storage?.local;
+    if (
+      !root.VimCommandState ||
+      !root.VimCommandRegistry ||
+      !root.VimCommandState.canPersistState(privateContext, storage)
+    ) {
+      return { ok: false, error: "Extension storage is unavailable." };
+    }
+    if (message.type === "VIM_STATE_GET") {
+      const stored = await storage.get(STATE_STORAGE_KEYS);
+      return { ok: true, state: normalizeStoredState(stored) };
+    }
+    const preferences = root.VimCommandState.normalizePreferences(message.state.preferences);
+    const history = root.VimCommandState.normalizeHistory(
+      message.state.history,
+      preferences.historyLimit,
+    );
+    const aliases = {
+      ...root.VimCommandState.normalizeAliases(
+        message.state.aliases,
+        root.VimCommandRegistry.names(),
+      ),
+    };
+    const updatedState = { history, aliases, preferences };
+    await storage.set({
+      fvcCommandHistory: history,
+      fvcCommandAliases: aliases,
+      fvcCommandPreferences: preferences,
+    });
+    if (browserApi.tabs?.query && browserApi.tabs?.sendMessage && sender.tab?.id !== undefined) {
+      try {
+        const tabs = await browserApi.tabs.query({});
+        await Promise.all(
+          tabs
+            .filter((tab) => !tab.incognito && tab.id !== sender.tab.id)
+            .map(async (tab) => {
+              try {
+                await browserApi.tabs.sendMessage(tab.id, {
+                  type: "VIM_STATE_UPDATED",
+                  state: updatedState,
+                });
+              } catch {
+                // Tabs without the content script can be ignored.
+              }
+            }),
+        );
+      } catch {
+        // Persisted state remains available when each tab next loads the prompt.
+      }
+    }
+    return { ok: true, persisted: true };
   }
 
   function tabSummary(tab, windowIndex) {
@@ -716,7 +842,18 @@
     message,
     browserApi = root.browser,
     selectors = root.VimTabSelectors,
+    sender = {},
   ) {
+    if (message?.type === "VIM_STATE_GET" || message?.type === "VIM_STATE_SET") {
+      try {
+        return await handleStateMessage(message, browserApi, sender);
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Could not access extension storage.",
+        };
+      }
+    }
     const validationError = validateCommandRequest(message);
     if (validationError) return { ok: false, error: validationError };
     const { command } = message;
@@ -734,7 +871,9 @@
   }
 
   if (root.browser?.runtime?.onMessage) {
-    root.browser.runtime.onMessage.addListener((message) => handleMessage(message));
+    root.browser.runtime.onMessage.addListener((message, sender) =>
+      handleMessage(message, root.browser, root.VimTabSelectors, sender),
+    );
   }
 
   const api = {
@@ -748,6 +887,8 @@
     moveTabsToWindow,
     getNormalWindowSnapshot,
     handleMessage,
+    handleStateMessage,
+    validateStateMessage,
     orderedSelection,
     previewLines,
     removableTabs,

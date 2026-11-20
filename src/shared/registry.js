@@ -52,6 +52,12 @@
       status: "planned",
       summary: "Stop loading (not exposed by a safe WebExtensions API)",
     },
+    { name: "history", status: "implemented", summary: "Show recent command history" },
+    { name: "clear_history", status: "implemented", summary: "Clear saved command history" },
+    { name: "alias", status: "implemented", summary: "Create a named command alias" },
+    { name: "unalias", status: "implemented", summary: "Remove a command alias" },
+    { name: "aliases", status: "implemented", summary: "List saved command aliases" },
+    { name: "set", status: "implemented", summary: "Update local command preferences" },
   ];
 
   const registry = {
