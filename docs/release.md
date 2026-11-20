@@ -5,11 +5,17 @@
 Use the repository's Docker/Compose toolchain so local validation matches CI:
 
 ```sh
-docker compose build app
+docker compose build app browser-tests browser-tests-115 fixture firefox firefox-115
 docker compose run --rm app npm run check
+docker compose run --rm browser-tests npm run test:browser
+docker compose run --rm browser-tests-115 npm run test:browser
 ```
 
-The aggregate check runs formatting, lint, all Node tests, the unpacked extension build, and deterministic ZIP packaging. The package script validates the manifest and every referenced background/content script plus the default locale before writing the archive.
+The aggregate check runs formatting, lint, all Node tests, the unpacked extension build, and deterministic ZIP packaging. The two browser-test commands run the same real-Firefox smoke suite against current Stable and the pinned Firefox 115 ESR image, each in a disposable Selenium profile. CI runs these checks for pull requests.
+
+The CI browser versions verified on 2026-11-20 were Firefox 159.0.1 Stable and Firefox 115.45.0 ESR, both with geckodriver 0.37.1 ([run #153](https://github.com/mintymelinda/firefox_vim_controls/actions/runs/44816732952)). These are point-in-time test versions, not a claim that all Firefox releases are covered.
+
+The browser suite covers prompt activation, editable-control safety, DOM-level accessibility semantics, focus behavior, bounded output, a background command round-trip, and the `about:blank` boundary. It does not automate privileged Firefox UI, full command-catalogue workflows, or real screen-reader announcements; see [compatibility](compatibility.md) and [accessibility](accessibility.md) for the remaining manual checks.
 
 The distributable is written to:
 
@@ -23,9 +29,9 @@ For a release:
 1. Update `manifest.json` `version`.
 2. Update `package.json` `version` to the same value.
 3. Update the README/release notes for user-visible changes.
-4. Run the complete Docker/Compose check.
+4. Run the complete Docker/Compose check and both browser smoke suites.
 5. Review the ZIP contents and confirm the manifest version and required locale/scripts are present.
-6. Record the Firefox Stable version used for the manual smoke test.
+6. Record any additional manual compatibility and accessibility checks performed against the release candidate.
 
 Use a new version for each AMO submission. Do not reuse a previously submitted version.
 
@@ -46,10 +52,12 @@ For development, load the unpacked `dist/` directory through Firefox's `about:de
 ## Release checklist
 
 - [ ] Version numbers are synchronized.
-- [ ] CI formatter, lint, tests, build, and package checks pass.
-- [ ] Compatibility smoke tests are recorded for the minimum baseline and current Stable.
-- [ ] Accessibility smoke test is recorded.
+- [ ] CI formatter, lint, unit tests, build, and package checks pass.
+- [ ] CI real-browser smoke tests pass on Firefox 115 ESR and current Stable.
+- [ ] Representative full command workflows and private-window isolation are manually checked on the release candidate.
+- [ ] Privileged internal-page boundaries are manually checked.
+- [ ] Screen-reader and keyboard accessibility checks are recorded with browser/AT versions.
 - [ ] ZIP manifest, referenced scripts, and locale validate.
 - [ ] AMO validation/review is complete.
 - [ ] The signed AMO artifact, not the unsigned local ZIP, is distributed.
-- [ ] Release notes and compatibility matrix are updated.
+- [ ] Release notes and compatibility matrix are updated with evidence from the release candidate.
