@@ -313,7 +313,6 @@ test("sorting keeps pinned and unpinned tabs in their own positions", async () =
   );
 });
 
-
 test("opens safe URLs and shortcuts in the requested destination", async () => {
   const api = createBrowserApi();
   const opened = await handleMessage(request("open", ["twitch"]), api, selectors);
