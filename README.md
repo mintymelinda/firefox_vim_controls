@@ -16,7 +16,7 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. `n
 
 ## Current status
 
-Phases 1–8 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, and AMO packaging.
+Phases 1–9 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, and read-only/browser utility commands.
 
 See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md).
 
