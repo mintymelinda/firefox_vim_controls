@@ -116,7 +116,11 @@ function createBrowserApi() {
         windows
           .filter((window) => query.windowId === undefined || window.id === query.windowId)
           .flatMap((window) =>
-            window.tabs.map((tab) => ({ ...tab, incognito: window.incognito, windowId: window.id })),
+            window.tabs.map((tab) => ({
+              ...tab,
+              incognito: window.incognito,
+              windowId: window.id,
+            })),
           ),
       sendMessage: async (id, message) => calls.stateBroadcasts.push({ id, message }),
       remove: async (ids) => {
@@ -139,7 +143,12 @@ function createBrowserApi() {
       },
       create: async (properties) => {
         calls.tabCreates.push(properties);
-        const tab = { id: nextTabId++, ...properties, title: properties.url, active: properties.active };
+        const tab = {
+          id: nextTabId++,
+          ...properties,
+          title: properties.url,
+          active: properties.active,
+        };
         const window = windows.find((item) => item.id === properties.windowId);
         if (window) window.tabs.push(tab);
         return tab;
@@ -545,7 +554,6 @@ test("rejects malformed command state messages", async () => {
   );
 });
 
-
 test("saves, lists, loads, appends, and restores named sessions", async () => {
   const api = createBrowserApi();
   const sender = { tab: { id: 1, incognito: false } };
@@ -574,10 +582,18 @@ test("saves, lists, loads, appends, and restores named sessions", async () => {
   assert.equal(api.calls.windowCreates.length, 2);
   api.calls.tabCreates.length = 0;
 
-  const appended = await handleMessage(request("session", ["append", "work"]), api, selectors, sender);
+  const appended = await handleMessage(
+    request("session", ["append", "work"]),
+    api,
+    selectors,
+    sender,
+  );
   assert.match(appended.output[0], /Appended 4 tab\(s\)/);
   assert.equal(api.calls.tabCreates.length, 4);
-  assert.equal(api.calls.tabCreates.every((tab) => tab.windowId === 10 && tab.active === false), true);
+  assert.equal(
+    api.calls.tabCreates.every((tab) => tab.windowId === 10 && tab.active === false),
+    true,
+  );
   assert.deepEqual(api.calls.updated.at(-1).properties, { active: true });
 });
 
@@ -585,7 +601,12 @@ test("deletes sessions and reports missing records", async () => {
   const api = createBrowserApi();
   const sender = { tab: { incognito: false } };
   await handleMessage(request("session", ["save", "work"]), api, selectors, sender);
-  const deleted = await handleMessage(request("session", ["delete", "work"]), api, selectors, sender);
+  const deleted = await handleMessage(
+    request("session", ["delete", "work"]),
+    api,
+    selectors,
+    sender,
+  );
   assert.match(deleted.output[0], /Deleted session "work"/);
   assert.deepEqual(Object.keys(api.storageData.fvcSessions), []);
   assert.equal(api.storageData.fvcLastSessionName, "");
@@ -596,7 +617,12 @@ test("deletes sessions and reports missing records", async () => {
 test("creates, lists, switches, and renames workspaces", async () => {
   const api = createBrowserApi();
   const sender = { tab: { incognito: false } };
-  const created = await handleMessage(request("workspace", ["create", "streaming"]), api, selectors, sender);
+  const created = await handleMessage(
+    request("workspace", ["create", "streaming"]),
+    api,
+    selectors,
+    sender,
+  );
   assert.match(created.output[0], /Created workspace "streaming"/);
   const duplicate = await handleMessage(
     request("workspace", ["create", "streaming"]),
@@ -654,7 +680,6 @@ test("session restoration reports browser API failures without closing existing 
   assert.deepEqual(api.calls.removed, []);
 });
 
-
 test("rolls back windows created before a session restore failure", async () => {
   const api = createBrowserApi();
   const sender = { tab: { incognito: false } };
@@ -683,7 +708,12 @@ test("rolls back tabs appended before a session append failure", async () => {
     if (attempts === 2) throw new Error("tab creation failed");
     return createTab(properties);
   };
-  const result = await handleMessage(request("session", ["append", "work"]), api, selectors, sender);
+  const result = await handleMessage(
+    request("session", ["append", "work"]),
+    api,
+    selectors,
+    sender,
+  );
   assert.equal(result.ok, false);
   assert.match(result.error, /Session append failed after creating 1 tab/);
   assert.deepEqual(api.calls.removed, [50]);
@@ -696,10 +726,16 @@ test("rejects invalid session command syntax and missing focused append target",
   assert.match(missingAction.error, /Session syntax/);
   await handleMessage(request("session", ["save", "work"]), api, selectors, sender);
   const originalGetAll = api.windows.getAll;
-  api.windows.getAll = async () => (await originalGetAll()).map((window) => ({
-    ...window,
-    focused: false,
-  }));
-  const append = await handleMessage(request("session", ["append", "work"]), api, selectors, sender);
+  api.windows.getAll = async () =>
+    (await originalGetAll()).map((window) => ({
+      ...window,
+      focused: false,
+    }));
+  const append = await handleMessage(
+    request("session", ["append", "work"]),
+    api,
+    selectors,
+    sender,
+  );
   assert.match(append.error, /There is no focused normal browser window/);
 });
