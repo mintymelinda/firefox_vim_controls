@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   handleMessage,
+  clearUndoStack,
   removableTabs,
   resolveMoveTarget,
   validateCommandRequest,
@@ -43,6 +44,8 @@ function makeWindows() {
 
 function createBrowserApi() {
   const windows = makeWindows();
+  const syncIndexes = (window) => window.tabs.forEach((tab, index) => (tab.index = index));
+  windows.forEach(syncIndexes);
   const calls = {
     removed: [],
     updated: [],
@@ -95,6 +98,7 @@ function createBrowserApi() {
           : undefined;
         for (const window of windows) {
           window.tabs = window.tabs.filter((item) => item.id !== tabId);
+          syncIndexes(window);
         }
         const createdTabs = tab
           ? [tab]
@@ -108,6 +112,7 @@ function createBrowserApi() {
           state: "normal",
           tabs: createdTabs,
         });
+        syncIndexes(windows.at(-1));
         calls.windowCreates.push({ id, tabId, url, focused });
         return { id, tabs: createdTabs };
       },
@@ -129,6 +134,7 @@ function createBrowserApi() {
         calls.removed.push(...values);
         for (const window of windows) {
           window.tabs = window.tabs.filter((tab) => !values.includes(tab.id));
+          syncIndexes(window);
         }
       },
       update: async (id, properties) => {
@@ -140,6 +146,7 @@ function createBrowserApi() {
             for (const item of window.tabs) item.active = item.id === id;
           }
           Object.assign(tab, properties);
+          syncIndexes(window);
         }
       },
       create: async (properties) => {
@@ -151,14 +158,37 @@ function createBrowserApi() {
           active: properties.active,
         };
         const window = windows.find((item) => item.id === properties.windowId);
-        if (window) window.tabs.push(tab);
+        if (window) {
+          window.tabs.push(tab);
+          syncIndexes(window);
+        }
         return tab;
       },
       goBack: async (id) => calls.wentBack.push(id),
       goForward: async (id) => calls.wentForward.push(id),
       reload: async (id) => calls.reloaded.push(id),
       discard: async (id) => calls.discarded.push(id),
-      move: async (ids, properties) => calls.moved.push({ ids, properties }),
+      move: async (ids, properties) => {
+        calls.moved.push({ ids, properties });
+        const tabIds = Array.isArray(ids) ? ids : [ids];
+        const movingTabs = [];
+        for (const id of tabIds) {
+          for (const window of windows) {
+            const index = window.tabs.findIndex((tab) => tab.id === id);
+            if (index < 0) continue;
+            movingTabs.push(window.tabs.splice(index, 1)[0]);
+            syncIndexes(window);
+            break;
+          }
+        }
+        const target = windows.find((window) => window.id === properties.windowId);
+        if (target) {
+          const index = properties.index < 0 ? target.tabs.length : properties.index;
+          target.tabs.splice(index, 0, ...movingTabs);
+          syncIndexes(target);
+        }
+        return movingTabs;
+      },
     },
   };
 }
