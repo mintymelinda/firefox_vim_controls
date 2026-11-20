@@ -54,6 +54,7 @@ function createBrowserApi() {
     wentForward: [],
     storageGets: [],
     storageSets: [],
+    stateBroadcasts: [],
   };
   const storageData = {};
   let nextWindowId = 20;
@@ -98,6 +99,11 @@ function createBrowserApi() {
       },
     },
     tabs: {
+      query: async () =>
+        windows.flatMap((window) =>
+          window.tabs.map((tab) => ({ ...tab, incognito: window.incognito, windowId: window.id })),
+        ),
+      sendMessage: async (id, message) => calls.stateBroadcasts.push({ id, message }),
       remove: async (id) => calls.removed.push(id),
       update: async (id, properties) => calls.updated.push({ id, properties }),
       create: async (properties) => {
@@ -424,7 +430,7 @@ test("home navigates the active tab and stop remains explicitly planned", async 
 
 test("persists normalized command state for normal tabs only", async () => {
   const api = createBrowserApi();
-  const normalSender = { tab: { incognito: false } };
+  const normalSender = { tab: { id: 1, incognito: false } };
   const privateSender = { tab: { incognito: true } };
   const initial = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, normalSender);
   assert.equal(initial.ok, true);
@@ -455,6 +461,10 @@ test("persists normalized command state for normal tabs only", async () => {
     normalSender,
   );
   assert.deepEqual(saved, { ok: true, persisted: true });
+  assert.deepEqual(
+    api.calls.stateBroadcasts.map((item) => item.id),
+    [2, 3, 4],
+  );
 
   const loaded = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, normalSender);
   assert.deepEqual(loaded.state.history, [":tabs", ":move twitch, new_window"]);
@@ -466,6 +476,7 @@ test("persists normalized command state for normal tabs only", async () => {
 
   const getCount = api.calls.storageGets.length;
   const setCount = api.calls.storageSets.length;
+  const broadcastCount = api.calls.stateBroadcasts.length;
   const privateRead = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, privateSender);
   const privateWrite = await handleMessage(
     {
@@ -485,6 +496,7 @@ test("persists normalized command state for normal tabs only", async () => {
   assert.deepEqual(privateWrite, { ok: true, persisted: false });
   assert.equal(api.calls.storageGets.length, getCount);
   assert.equal(api.calls.storageSets.length, setCount);
+  assert.equal(api.calls.stateBroadcasts.length, broadcastCount);
 });
 
 test("rejects malformed command state messages", async () => {
