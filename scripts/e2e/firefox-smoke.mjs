@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 const root = resolve(import.meta.dirname, "../..");
 const project = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 const extensionPath = resolve(root, "artifacts", `firefox-vim-controls-${project.version}.zip`);
+const sharedExtensionPath = `/extension-artifacts/firefox-vim-controls-${project.version}.zip`;
+await mkdir("/extension-artifacts", { recursive: true });
+await copyFile(extensionPath, sharedExtensionPath);
 const remoteUrl = (process.env.SELENIUM_REMOTE_URL || "http://firefox:4444").replace(/\/$/, "");
 const fixtureUrl = process.env.FIXTURE_URL || "http://fixture:4173/";
 
@@ -87,10 +90,9 @@ try {
     );
   }
 
-  const addon = await readFile(extensionPath);
-  // Omitting allowPrivateBrowsing keeps the default disabled and remains compatible with Firefox 115.
+  // The path form works with Firefox 115 ESR and current Firefox Marionette handlers.
   const installedId = await request("POST", `/session/${sessionId}/moz/addon/install`, {
-    addon: addon.toString("base64"),
+    path: sharedExtensionPath,
     temporary: true,
   });
   assert.ok(installedId, "development extension should install temporarily");
