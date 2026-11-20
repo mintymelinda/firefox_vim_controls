@@ -9,7 +9,6 @@
     return;
   }
 
-  const STORAGE_KEYS = ["fvcCommandHistory", "fvcCommandAliases", "fvcCommandPreferences"];
   const history = [];
   let aliases = Object.create(null);
   let preferences = globalThis.VimCommandState.normalizePreferences();
