@@ -14,7 +14,11 @@
     { name: "loading", status: "implemented", summary: "List tabs currently loading" },
     { name: "bookmarks", status: "implemented", summary: "Open Firefox's bookmarks manager" },
     { name: "downloads", status: "implemented", summary: "Open Firefox's downloads manager" },
-    { name: "new_private", status: "implemented", summary: "Create a private browser window when permitted" },
+    {
+      name: "new_private",
+      status: "implemented",
+      summary: "Create a private browser window when permitted",
+    },
     { name: "close", status: "implemented", summary: "Close matching tabs" },
     { name: "move", status: "implemented", summary: "Move matching tabs to a window" },
     { name: "reload", status: "implemented", summary: "Reload matching tabs" },
