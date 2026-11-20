@@ -144,7 +144,11 @@
       };
     }
     const storage = browserApi?.storage?.local;
-    if (!root.VimCommandState || !root.VimCommandRegistry || !storage) {
+    if (
+      !root.VimCommandState ||
+      !root.VimCommandRegistry ||
+      !root.VimCommandState.canPersistState(privateContext, storage)
+    ) {
       return { ok: false, error: "Extension storage is unavailable." };
     }
     if (message.type === "VIM_STATE_GET") {
