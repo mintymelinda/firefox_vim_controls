@@ -49,10 +49,11 @@
     if (typeof command.name !== "string" || !/^[a-z][a-z0-9_-]*$/.test(command.name)) {
       return "Invalid command name";
     }
+    const maxArgumentLength = command.name === "open" ? 8192 : 256;
     if (
       !Array.isArray(command.args) ||
       command.args.length > 32 ||
-      command.args.some((arg) => typeof arg !== "string" || arg.length > 256)
+      command.args.some((arg) => typeof arg !== "string" || arg.length > maxArgumentLength)
     ) {
       return "Invalid command arguments";
     }
