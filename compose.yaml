@@ -28,6 +28,8 @@ services:
   firefox:
     image: selenium/standalone-firefox:4.52.0-20261101
     shm_size: 2gb
+    volumes:
+      - extension-artifacts:/extension-artifacts:ro
     environment:
       SE_NODE_MAX_SESSIONS: "1"
     healthcheck:
@@ -45,6 +47,8 @@ services:
       context: .
       dockerfile: Dockerfile.firefox-115
     shm_size: 2gb
+    volumes:
+      - extension-artifacts:/extension-artifacts:ro
     environment:
       SE_NODE_MAX_SESSIONS: "1"
     healthcheck:
@@ -64,6 +68,7 @@ services:
     volumes:
       - .:/workspace
       - node_modules:/workspace/node_modules
+      - extension-artifacts:/extension-artifacts
     environment:
       SELENIUM_REMOTE_URL: http://firefox:4444
       FIXTURE_URL: http://fixture:4173/
@@ -82,6 +87,7 @@ services:
     volumes:
       - .:/workspace
       - node_modules:/workspace/node_modules
+      - extension-artifacts:/extension-artifacts
     environment:
       SELENIUM_REMOTE_URL: http://firefox-115:4444
       FIXTURE_URL: http://fixture:4173/
@@ -95,3 +101,4 @@ services:
 
 volumes:
   node_modules:
+  extension-artifacts:
