@@ -89,8 +89,7 @@
         throw new Error("Numeric tab selectors require a focused normal browser window.");
       }
       return tabs.filter(
-        (tab) =>
-          tab.windowId === options.currentWindowId && tab.index === oneBasedIndex - 1,
+        (tab) => tab.windowId === options.currentWindowId && tab.index === oneBasedIndex - 1,
       );
     }
     if (value === "empty") {
