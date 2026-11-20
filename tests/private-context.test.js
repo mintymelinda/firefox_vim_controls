@@ -1,9 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const {
-  getNormalWindowSnapshot,
-  handleMessage,
-} = require("../src/background/background.js");
+const { getNormalWindowSnapshot, handleMessage } = require("../src/background/background.js");
 const selectors = require("../src/shared/selectors.js");
 const commandState = require("../src/shared/command-state.js");
 require("../src/shared/registry.js");
@@ -152,12 +149,9 @@ test("private session and workspace saves never persist private URL or title dat
 test("private state reads return an empty transient state without reading storage", async () => {
   const api = createBrowserApi();
   const before = structuredClone(api.storageData);
-  const result = await handleMessage(
-    { type: "VIM_STATE_GET" },
-    browserApiParts(api),
-    selectors,
-    { tab: { id: 3, incognito: true } },
-  );
+  const result = await handleMessage({ type: "VIM_STATE_GET" }, browserApiParts(api), selectors, {
+    tab: { id: 3, incognito: true },
+  });
 
   assert.deepEqual(result, {
     ok: true,
@@ -226,27 +220,24 @@ test("private macro get, set, and delete are all rejected before storage access"
   assert.doesNotMatch(JSON.stringify(api.storageData.fvcCommandMacros), /private[.]example/);
 });
 
-test(
-  "private session, workspace, and undo commands are rejected without storage or browser access",
-  async () => {
-    const api = createBrowserApi();
-    const before = structuredClone(api.storageData);
-    const browser = browserApiParts(api);
-    const sender = { tab: { id: 3, incognito: true } };
+test("private session, workspace, and undo commands are rejected without storage or browser access", async () => {
+  const api = createBrowserApi();
+  const before = structuredClone(api.storageData);
+  const browser = browserApiParts(api);
+  const sender = { tab: { id: 3, incognito: true } };
 
-    for (const command of [
-      request("session", ["list"]),
-      request("workspace", ["list"]),
-      request("undo"),
-    ]) {
-      const result = await handleMessage(command, browser, selectors, sender);
-      assert.equal(result.ok, false);
-      assert.match(result.error, /disabled in private browsing/);
-    }
+  for (const command of [
+    request("session", ["list"]),
+    request("workspace", ["list"]),
+    request("undo"),
+  ]) {
+    const result = await handleMessage(command, browser, selectors, sender);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /disabled in private browsing/);
+  }
 
-    assert.deepEqual(api.calls.gets, []);
-    assert.deepEqual(api.calls.sets, []);
-    assert.equal(api.calls.windowGets, 0);
-    assert.deepEqual(api.storageData, before);
-  },
-);
+  assert.deepEqual(api.calls.gets, []);
+  assert.deepEqual(api.calls.sets, []);
+  assert.equal(api.calls.windowGets, 0);
+  assert.deepEqual(api.storageData, before);
+});
