@@ -214,6 +214,7 @@
         snapshot,
         root.VimSessionState.LIMITS.sessions,
       );
+      root.VimSessionState.assertStorageBudget(updated, workspaces);
       await browserApi.storage.local.set({ fvcSessions: updated, fvcLastSessionName: key });
       return { ok: true, output: [`Saved session "${key}" — ${snapshotSummary(snapshot)}.`] };
     }
@@ -255,11 +256,7 @@
     }
     const [action, ...nameParts] = command.args;
     const name = nameParts.join(" ").trim();
-    const stored = await browserApi.storage.local.get(["fvcWorkspaces"]);
-    const workspaces = root.VimSessionState.normalizeCollection(
-      stored.fvcWorkspaces,
-      root.VimSessionState.LIMITS.workspaces,
-    );
+    const { sessions, workspaces } = await readSessionCollections(browserApi);
     if (action === "list") {
       const entries = root.VimSessionState.listRecords(
         workspaces,
@@ -284,6 +281,7 @@
         snapshot,
         root.VimSessionState.LIMITS.workspaces,
       );
+      root.VimSessionState.assertStorageBudget(sessions, updated);
       await browserApi.storage.local.set({ fvcWorkspaces: updated });
       return { ok: true, output: [`Created workspace "${key}" — ${snapshotSummary(snapshot)}.`] };
     }
