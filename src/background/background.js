@@ -67,11 +67,7 @@
     return null;
   }
 
-  const STATE_STORAGE_KEYS = [
-    "fvcCommandHistory",
-    "fvcCommandAliases",
-    "fvcCommandPreferences",
-  ];
+  const STATE_STORAGE_KEYS = ["fvcCommandHistory", "fvcCommandAliases", "fvcCommandPreferences"];
 
   function validateStateMessage(message) {
     if (!message || typeof message !== "object" || Array.isArray(message)) {
@@ -853,7 +849,9 @@
   }
 
   if (root.browser?.runtime?.onMessage) {
-    root.browser.runtime.onMessage.addListener((message, sender) => handleMessage(message, root.browser, root.VimTabSelectors, sender));
+    root.browser.runtime.onMessage.addListener((message, sender) =>
+      handleMessage(message, root.browser, root.VimTabSelectors, sender),
+    );
   }
 
   const api = {
