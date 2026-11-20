@@ -153,7 +153,7 @@ try {
   );
 
   console.log(
-    "Firefox browser smoke tests passed (activation, editable safety, focus, command round-trip, restricted page).",
+    "Firefox browser smoke tests passed (activation, editable safety, focus, command round-trip, about:blank boundary).",
   );
 } finally {
   if (sessionId) {
