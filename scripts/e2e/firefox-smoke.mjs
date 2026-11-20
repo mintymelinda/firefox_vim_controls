@@ -98,7 +98,14 @@ try {
   assert.ok(installedId, "development extension should install temporarily");
 
   // Exercise the about:blank injection boundary before opening or moving tabs/windows.
-  // Firefox can leave Marionette's current browsing context stale after a window move.
+  await request("POST", `/session/${sessionId}/url`, { url: "about:blank" });
+  await delay(500);
+  assert.equal(
+    await findElement(sessionId, "#fvc-command-panel"),
+    null,
+    "about:blank must not receive the content-script prompt without an explicit match-about-blank opt-in",
+  );
+
   await request("POST", `/session/${sessionId}/url`, { url: fixtureUrl });
   await waitFor("fixture page title", async () => {
     return (await request("GET", `/session/${sessionId}/title`)) === "Firefox Vim Controls fixture";
@@ -337,14 +344,6 @@ try {
   await waitFor(
     "prompt close after command",
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
-  );
-
-  await request("POST", `/session/${sessionId}/url`, { url: "about:blank" });
-  await delay(500);
-  assert.equal(
-    await findElement(sessionId, "#fvc-command-panel"),
-    null,
-    "about:blank must not receive the content-script prompt without an explicit match-about-blank opt-in",
   );
 
   console.log(
