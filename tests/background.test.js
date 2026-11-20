@@ -7,6 +7,8 @@ const {
   validateCommandRequest,
 } = require("../src/background/background.js");
 const selectors = require("../src/shared/selectors.js");
+require("../src/shared/registry.js");
+require("../src/shared/command-state.js");
 
 function makeWindows() {
   return [
@@ -50,10 +52,25 @@ function createBrowserApi() {
     tabCreates: [],
     wentBack: [],
     wentForward: [],
+    storageGets: [],
+    storageSets: [],
   };
+  const storageData = {};
   let nextWindowId = 20;
   return {
     calls,
+    storage: {
+      local: {
+        get: async (keys) => {
+          calls.storageGets.push(keys);
+          return Object.fromEntries(keys.map((key) => [key, storageData[key]]));
+        },
+        set: async (values) => {
+          calls.storageSets.push(values);
+          Object.assign(storageData, values);
+        },
+      },
+    },
     windows: {
       getAll: async () => windows,
       update: async (id, properties) => {
@@ -403,4 +420,87 @@ test("home navigates the active tab and stop remains explicitly planned", async 
 
   const stop = await handleMessage(request("stop"), api, selectors);
   assert.match(stop.error, /not implemented yet/);
+});
+
+
+test("persists normalized command state for normal tabs only", async () => {
+  const api = createBrowserApi();
+  const normalSender = { tab: { incognito: false } };
+  const privateSender = { tab: { incognito: true } };
+  const initial = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, normalSender);
+  assert.equal(initial.ok, true);
+  assert.deepEqual(initial.state, {
+    history: [],
+    aliases: {},
+    preferences: { historyLimit: 100, searchEngine: "duckduckgo" },
+  });
+
+  const saved = await handleMessage(
+    {
+      type: "VIM_STATE_SET",
+      state: {
+        history: [" :tabs", ":tabs", " :move twitch, new_window"],
+        aliases: {
+          stream: {
+            command: { name: "move", args: ["twitch"], destination: ["new_window"] },
+          },
+          nested: {
+            command: { name: "alias", args: ["other"], destination: [] },
+          },
+        },
+        preferences: { historyLimit: 20, searchEngine: "google" },
+      },
+    },
+    api,
+    selectors,
+    normalSender,
+  );
+  assert.deepEqual(saved, { ok: true, persisted: true });
+
+  const loaded = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, normalSender);
+  assert.deepEqual(loaded.state.history, [":tabs", " :move twitch, new_window"]);
+  assert.deepEqual(Object.keys(loaded.state.aliases), ["stream"]);
+  assert.deepEqual(loaded.state.preferences, {
+    historyLimit: 20,
+    searchEngine: "google",
+  });
+
+  const getCount = api.calls.storageGets.length;
+  const setCount = api.calls.storageSets.length;
+  const privateRead = await handleMessage(
+    { type: "VIM_STATE_GET" },
+    api,
+    selectors,
+    privateSender,
+  );
+  const privateWrite = await handleMessage(
+    {
+      type: "VIM_STATE_SET",
+      state: {
+        history: [":open https://private.example"],
+        aliases: {},
+        preferences: { historyLimit: 100, searchEngine: "duckduckgo" },
+      },
+    },
+    api,
+    selectors,
+    privateSender,
+  );
+  assert.equal(privateRead.persisted, false);
+  assert.deepEqual(privateRead.state.history, []);
+  assert.deepEqual(privateWrite, { ok: true, persisted: false });
+  assert.equal(api.calls.storageGets.length, getCount);
+  assert.equal(api.calls.storageSets.length, setCount);
+});
+
+test("rejects malformed command state messages", async () => {
+  const api = createBrowserApi();
+  assert.match(
+    (await handleMessage({ type: "VIM_STATE_SET", state: { history: [] } }, api, selectors)).error,
+    /Invalid state values/,
+  );
+  assert.match(
+    (await handleMessage({ type: "VIM_STATE_GET", extra: true }, api, selectors)).error,
+    /Unexpected state message properties/,
+  );
 });
