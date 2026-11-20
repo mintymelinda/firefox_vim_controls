@@ -114,7 +114,11 @@ async function validatePackageFiles(entries) {
   const manifestData = byName.get("manifest.json");
   if (!manifestData) throw new Error("Built package is missing manifest.json.");
   const manifest = JSON.parse(manifestData.toString("utf8"));
-  if (manifest.manifest_version !== 2 || !manifest.browser_specific_settings?.gecko || !manifest.default_locale) {
+  if (
+    manifest.manifest_version !== 2 ||
+    !manifest.browser_specific_settings?.gecko ||
+    !manifest.default_locale
+  ) {
     throw new Error("Built manifest is not a supported Firefox WebExtension manifest.");
   }
   const scripts = [
@@ -122,7 +126,8 @@ async function validatePackageFiles(entries) {
     ...(manifest.content_scripts || []).flatMap((script) => script.js || []),
   ];
   for (const script of scripts) {
-    if (!byName.has(script)) throw new Error(`Built package is missing referenced script: ${script}`);
+    if (!byName.has(script))
+      throw new Error(`Built package is missing referenced script: ${script}`);
   }
   const locale = `_locales/${manifest.default_locale || "en"}/messages.json`;
   if (!byName.has(locale)) throw new Error(`Built package is missing default locale: ${locale}`);
