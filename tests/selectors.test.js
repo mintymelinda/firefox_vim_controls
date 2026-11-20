@@ -87,7 +87,6 @@ test("selects tabs currently loading", () => {
   );
 });
 
-
 test("selects other, left, and right relative to the active tab in its window", () => {
   const relativeTabs = [
     { id: 1, windowId: 10, index: 1, active: true },
@@ -121,6 +120,12 @@ test("selects blank and discarded tabs without treating ordinary pages as empty"
     { id: 4, url: "https://example.com", discarded: true },
     { id: 5, url: "https://example.net", discarded: false },
   ];
-  assert.deepEqual(selectTabs(cleanupTabs, "empty").map((tab) => tab.id), [1, 2, 3]);
-  assert.deepEqual(selectTabs(cleanupTabs, "discarded").map((tab) => tab.id), [4]);
+  assert.deepEqual(
+    selectTabs(cleanupTabs, "empty").map((tab) => tab.id),
+    [1, 2, 3],
+  );
+  assert.deepEqual(
+    selectTabs(cleanupTabs, "discarded").map((tab) => tab.id),
+    [4],
+  );
 });
