@@ -1,0 +1,17 @@
+{
+  "name": "firefox-vim-controls",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vim-inspired command interface for Firefox tab and window management",
+  "scripts": {
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "check": "npm run format:check && npm run lint && npm test && npm run build"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}
