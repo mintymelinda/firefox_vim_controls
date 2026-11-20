@@ -18,7 +18,9 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. `n
 
 Phases 1–11 are implemented on `main`: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, browser utility commands, relative cleanup selectors, and numeric tab targeting. Prompt-level activation, history/completion, and messaging interactions are covered by deterministic tests.
 
-See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md). For real-browser smoke tests, run `docker compose run --rm browser-tests npm run test:browser` against current Stable, or `docker compose run --rm browser-tests-115 npm run test:browser` against Firefox 115 ESR.
+See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md). For real-browser smoke tests, run `docker compose run --rm browser-tests npm run test:browser` against
+current Stable, or `docker compose run --rm browser-tests-115 npm run test:browser` against Firefox
+115 ESR.
 
 ## Keyboard behaviour
 
