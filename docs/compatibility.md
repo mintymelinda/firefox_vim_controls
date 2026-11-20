@@ -15,12 +15,12 @@ The minimum version is declared in `manifest.json` under `browser_specific_setti
 
 ## Verification matrix
 
-The automated Docker/Compose workflow validates JavaScript formatting, lint, unit tests, build, and ZIP packaging. It does **not** launch Firefox. Do not interpret a green CI run as a browser-version integration test.
+The default Docker/Compose workflow validates JavaScript formatting, lint, unit tests, build, and ZIP packaging. A separate Docker/Compose browser-test service launches real Firefox through Selenium WebDriver and exercises the extension on a local fixture page. It currently covers the current pinned Firefox image; it does not replace the Firefox 115 ESR release smoke test or screen-reader testing.
 
 | Browser target | Support intent | Verification status |
 |---|---|---|
 | Firefox 115 ESR | Minimum supported baseline | Manual smoke test required before release |
-| Latest Firefox Stable | Primary target | Manual smoke test required for each release |
+| Latest Firefox Stable | Primary target | Automated smoke tests in Docker/Compose; manual release smoke test still required |
 | Latest Firefox Beta | Early compatibility signal | Optional manual smoke test |
 | Firefox Android | Not in scope | Not tested |
 | Chromium-based browsers | Not supported | Not tested |
