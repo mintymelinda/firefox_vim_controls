@@ -97,7 +97,17 @@
       for (const command of parsed.commands) {
         const definition = globalThis.VimCommandRegistry.get(command.name);
         if (!definition || definition.status !== "implemented") {
-          const suggestions = globalThis.VimCommandSuggestions.suggestCommands(command.name, commandNames);\n          const hint = suggestions.length ? ` Did you mean ${suggestions.map((name) => `:${name}`).join(", ")}?` : " Try :help.";\n          appendOutput(`Unknown or not-yet-implemented command: ${command.name}.${hint}`, "error");
+          const suggestions = globalThis.VimCommandSuggestions.suggestCommands(
+            command.name,
+            commandNames,
+          );
+          const hint = suggestions.length
+            ? ` Did you mean ${suggestions.map((name) => `:${name}`).join(", ")}?`
+            : " Try :help."; 
+          appendOutput(
+            `Unknown or not-yet-implemented command: ${command.name}.${hint}`,
+            "error",
+          );
           continue;
         }
         if (command.name === "help") {
