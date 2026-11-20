@@ -422,7 +422,6 @@ test("home navigates the active tab and stop remains explicitly planned", async 
   assert.match(stop.error, /not implemented yet/);
 });
 
-
 test("persists normalized command state for normal tabs only", async () => {
   const api = createBrowserApi();
   const normalSender = { tab: { incognito: false } };
@@ -467,12 +466,7 @@ test("persists normalized command state for normal tabs only", async () => {
 
   const getCount = api.calls.storageGets.length;
   const setCount = api.calls.storageSets.length;
-  const privateRead = await handleMessage(
-    { type: "VIM_STATE_GET" },
-    api,
-    selectors,
-    privateSender,
-  );
+  const privateRead = await handleMessage({ type: "VIM_STATE_GET" }, api, selectors, privateSender);
   const privateWrite = await handleMessage(
     {
       type: "VIM_STATE_SET",
