@@ -35,6 +35,149 @@
     "undo",
   ]);
 
+
+  const undoStack = [];
+  const MAX_UNDO_ENTRIES = 20;
+  const UNDO_BARRIERS = new Set([
+    "close",
+    "reload",
+    "discard",
+    "open",
+    "search",
+    "back",
+    "forward",
+    "refresh",
+    "home",
+    "new_window",
+    "window",
+    "fullscreen",
+    "minimize",
+    "maximize",
+    "session",
+    "workspace",
+  ]);
+
+  function captureTabPositions(tabs) {
+    return tabs.map((tab) => ({
+      id: tab.id,
+      windowId: tab.windowId,
+      index: tab.index,
+      pinned: Boolean(tab.pinned),
+      muted: Boolean(tab.mutedInfo?.muted ?? tab.muted),
+    }));
+  }
+
+  function pushUndo(entry) {
+    if (!entry?.positions?.length && !entry?.tabs?.length) return;
+    undoStack.push(entry);
+    if (undoStack.length > MAX_UNDO_ENTRIES) undoStack.shift();
+  }
+
+  function clearUndoStack() {
+    undoStack.length = 0;
+  }
+
+  async function restoreTabPositions(positions, browserApi) {
+    const windows = await getNormalWindowSnapshot(browserApi);
+    const currentWindows = new Map(windows.map((window) => [window.id, window]));
+    const currentTabs = new Map(
+      windows.flatMap((window) => window.tabs.map((tab) => [tab.id, tab])),
+    );
+    const groups = new Map();
+    for (const position of [...positions].sort((left, right) => {
+      return left.windowId - right.windowId || left.index - right.index;
+    })) {
+      const group = groups.get(position.windowId) || [];
+      group.push(position);
+      groups.set(position.windowId, group);
+    }
+    const failures = [];
+    let moved = 0;
+    for (const [originalWindowId, group] of groups) {
+      let targetWindowId = originalWindowId;
+      if (!currentWindows.has(targetWindowId)) {
+        const first = group.find((position) => currentTabs.has(position.id));
+        if (!first) {
+          failures.push(`Original window ${originalWindowId} no longer exists and no saved tabs remain.`);
+          continue;
+        }
+        try {
+          const created = await browserApi.windows.create({
+            tabId: first.id,
+            focused: false,
+          });
+          targetWindowId = created.id;
+          currentTabs.set(first.id, {
+            ...currentTabs.get(first.id),
+            windowId: targetWindowId,
+            index: 0,
+          });
+          moved += 1;
+        } catch (error) {
+          failures.push(
+            `Could not recreate window ${originalWindowId}: ${error instanceof Error ? error.message : "window creation failed"}`,
+          );
+          continue;
+        }
+      }
+      for (const position of group) {
+        if (!currentTabs.has(position.id)) {
+          failures.push(`Tab #${position.id} is no longer open.`);
+          continue;
+        }
+        const current = currentTabs.get(position.id);
+        if (current.windowId === targetWindowId && current.index === position.index) continue;
+        try {
+          await browserApi.tabs.move(position.id, {
+            windowId: targetWindowId,
+            index: position.index,
+          });
+          currentTabs.set(position.id, {
+            ...current,
+            windowId: targetWindowId,
+            index: position.index,
+          });
+          moved += 1;
+        } catch (error) {
+          failures.push(
+            `Tab #${position.id}: ${error instanceof Error ? error.message : "tab move failed"}`,
+          );
+        }
+      }
+    }
+    return { failures, moved };
+  }
+
+  async function undoLastCommand(browserApi) {
+    const entry = undoStack.at(-1);
+    if (!entry) return { ok: false, error: "There is no supported command to undo." };
+    const failures = [];
+    if (entry.type === "tab-state") {
+      for (const tab of entry.tabs) {
+        try {
+          await browserApi.tabs.update(tab.id, tab.properties);
+        } catch (error) {
+          failures.push(
+            `Tab #${tab.id}: ${error instanceof Error ? error.message : "state restore failed"}`,
+          );
+        }
+      }
+    }
+    const restored = await restoreTabPositions(entry.positions, browserApi);
+    failures.push(...restored.failures);
+    if (failures.length) {
+      return {
+        ok: false,
+        error: `Undo was partial (${restored.moved} tab move(s) restored): ${failures.join("; ")}`,
+      };
+    }
+    undoStack.pop();
+    return {
+      ok: true,
+      output: [`Undid ${entry.label || "the previous reversible command"}.`],
+    };
+  }
+
   function validateCommandRequest(message) {
     if (!message || typeof message !== "object" || message.type !== "VIM_COMMAND_REQUEST") {
       return "Invalid message type";
