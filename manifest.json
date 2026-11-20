@@ -25,6 +25,7 @@
         "src/shared/suggestions.js",
         "src/shared/command-state.js",
         "src/shared/command-chain.js",
+        "src/shared/prompt-output.js",
         "src/content/entry.js"
       ],
       "run_at": "document_idle"
