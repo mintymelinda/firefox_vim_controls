@@ -14,8 +14,8 @@ Before each release, perform these manual checks in Firefox:
 - [ ] Verify the prompt does not intercept ordinary typing in inputs, textareas, or contenteditable regions.
 
 The real-Firefox smoke suite also asserts the prompt's dialog role and modal state, accessible
- dialog/input names, the keyboard-hint description, and the output log's live-region semantics. It
- exercises keyboard activation, focus entry, focus containment, focus restoration, and the 200-entry
- output bound in the browser. These are DOM-level regression checks; they do not validate the
- computed accessibility tree or actual screen-reader announcements. Manual browser and screen-reader
- testing remains required before release.
+dialog/input names, the keyboard-hint description, and the output log's live-region semantics. It
+exercises keyboard activation, focus entry, focus containment, focus restoration, and the 200-entry
+output bound in the browser. These are DOM-level regression checks; they do not validate the
+computed accessibility tree or actual screen-reader announcements. Manual browser and screen-reader
+testing remains required before release.
