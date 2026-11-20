@@ -1175,7 +1175,7 @@
       );
       const failures = results.filter(Boolean);
       const succeededIds = new Set(
-        selected.filter((tab, index) => !results[index]).map((tab) => tab.id),
+        selected.filter((_tab, index) => !results[index]).map((tab) => tab.id),
       );
       const succeeded = previous.filter((tab) => succeededIds.has(tab.id));
       if (succeeded.length) {
