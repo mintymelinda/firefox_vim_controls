@@ -49,6 +49,10 @@ async function sendKeys(sessionId, elementId, text) {
   });
 }
 
+async function executeScript(sessionId, script, args = []) {
+  return request("POST", `/session/${sessionId}/execute/sync`, { script, args });
+}
+
 async function waitFor(description, callback, timeoutMs = 8000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -72,9 +76,17 @@ try {
   sessionId = session.sessionId;
   assert.ok(sessionId, "Firefox WebDriver session should be created");
   const capabilities = session.capabilities || {};
-  console.log(
-    `Firefox ${capabilities.browserVersion || "unknown"}; geckodriver ${capabilities["moz:geckodriverVersion"] || "unknown"}`,
-  );
+  const browserVersion = capabilities.browserVersion || "unknown";
+  const geckodriverVersion = capabilities["moz:geckodriverVersion"] || "unknown";
+  console.log(`Firefox ${browserVersion}; geckodriver ${geckodriverVersion}`);
+  const expectedMajor = process.env.EXPECTED_FIREFOX_MAJOR;
+  if (expectedMajor) {
+    assert.equal(
+      browserVersion.split(".")[0],
+      expectedMajor,
+      `browser-test target must use Firefox ${expectedMajor}.x`,
+    );
+  }
 
   const addon = await readFile(extensionPath);
   const installedId = await request("POST", `/session/${sessionId}/moz/addon/install`, {
@@ -89,9 +101,10 @@ try {
     return (await request("GET", `/session/${sessionId}/title`)) === "Firefox Vim Controls fixture";
   });
 
-  const body = await findElement(sessionId, "body");
-  assert.ok(body, "fixture body should be available");
-  await sendKeys(sessionId, body, ":");
+  const trigger = await findElement(sessionId, "#fixture-button");
+  assert.ok(trigger, "fixture should expose a focusable trigger button");
+  await request("POST", `/session/${sessionId}/element/${trigger}/click`);
+  await sendKeys(sessionId, trigger, ":");
   let prompt = await waitFor("prompt activation on an ordinary page", () =>
     findElement(sessionId, "#fvc-command-panel"),
   );
@@ -109,6 +122,11 @@ try {
     "prompt dismissal with Escape",
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
   );
+  assert.equal(
+    await executeScript(sessionId, "return document.activeElement.id"),
+    "fixture-button",
+    "closing the prompt should restore focus to the previously focused page control",
+  );
 
   const editable = await findElement(sessionId, "#fixture-input");
   assert.ok(editable, "fixture should expose an editable input");
@@ -121,7 +139,8 @@ try {
   );
 
   await sendKeys(sessionId, editable, "\uE00C");
-  await sendKeys(sessionId, body, ":");
+  await request("POST", `/session/${sessionId}/element/${trigger}/click`);
+  await sendKeys(sessionId, trigger, ":");
   prompt = await waitFor("Escape-then-colon activation", () =>
     findElement(sessionId, "#fvc-command-panel"),
   );
