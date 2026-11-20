@@ -23,7 +23,7 @@ const server = createServer((request, response) => {
     return;
   }
 
-  const pathLabel = escapeHtml(decodeURIComponent(url.pathname));
+  const pathLabel = escapeHtml(`${url.host}${decodeURIComponent(url.pathname)}`);
   const title =
     url.pathname === "/"
       ? "Firefox Vim Controls fixture"
