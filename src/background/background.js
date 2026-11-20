@@ -35,7 +35,6 @@
     "undo",
   ]);
 
-
   const undoStack = [];
   const MAX_UNDO_ENTRIES = 20;
   const UNDO_BARRIERS = new Set([
@@ -96,7 +95,9 @@
       if (!currentWindows.has(targetWindowId)) {
         const first = group.find((position) => currentTabs.has(position.id));
         if (!first) {
-          failures.push(`Original window ${originalWindowId} no longer exists and no saved tabs remain.`);
+          failures.push(
+            `Original window ${originalWindowId} no longer exists and no saved tabs remain.`,
+          );
           continue;
         }
         try {
@@ -230,7 +231,6 @@
     return null;
   }
 
-
   const MACRO_STORAGE_KEY = "fvcCommandMacros";
 
   function allowedMacroCommands() {
@@ -301,11 +301,7 @@
       await browserApi.storage.local.set({ [MACRO_STORAGE_KEY]: updated });
       return { ok: true, output: [`Macro "${message.name}" saved.`] };
     }
-    const updated = root.VimMacroState.deleteMacro(
-      macros,
-      message.name,
-      allowedMacroCommands(),
-    );
+    const updated = root.VimMacroState.deleteMacro(macros, message.name, allowedMacroCommands());
     await browserApi.storage.local.set({ [MACRO_STORAGE_KEY]: updated });
     return { ok: true, output: [`Macro "${message.name}" deleted.`] };
   }
@@ -999,7 +995,11 @@
         return { ok: true, output: [message] };
       }
       if (removable.length > 1 && !confirmed) {
-        return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, removable, windows) };
+        return {
+          ok: true,
+          requiresConfirmation: true,
+          output: previewLines(name, selector, removable, windows),
+        };
       }
       clearUndoStack();
       const result = await performPerTab(removable, (id) => browserApi.tabs.remove(id));
@@ -1010,7 +1010,11 @@
     if (name === "reload") {
       if (!selected.length) return { ok: true, output: ["No tabs matched."] };
       if (selected.length > 1 && !confirmed) {
-        return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, selected, windows) };
+        return {
+          ok: true,
+          requiresConfirmation: true,
+          output: previewLines(name, selector, selected, windows),
+        };
       }
       clearUndoStack();
       return performPerTab(selected, (id) => browserApi.tabs.reload(id));
@@ -1026,7 +1030,11 @@
         return { ok: true, output: [message] };
       }
       if (eligible.length > 1 && !confirmed) {
-        return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, eligible, windows) };
+        return {
+          ok: true,
+          requiresConfirmation: true,
+          output: previewLines(name, selector, eligible, windows),
+        };
       }
       clearUndoStack();
       const result = await performPerTab(eligible, (id) => browserApi.tabs.discard(id));
@@ -1287,7 +1295,11 @@
     });
     if (!selected.length) return { ok: true, output: [`No tabs matched ${selector}.`] };
     if (command.name === "refresh" && selected.length > 1 && !confirmed) {
-      return { ok: true, requiresConfirmation: true, output: previewLines("refresh", selector, selected, windows) };
+      return {
+        ok: true,
+        requiresConfirmation: true,
+        output: previewLines("refresh", selector, selected, windows),
+      };
     }
     const operations = {
       back: (id) => browserApi.tabs.goBack(id),
@@ -1442,9 +1454,7 @@
     selectors = root.VimTabSelectors,
     sender = {},
   ) {
-    if (
-      ["VIM_MACRO_GET", "VIM_MACRO_SET", "VIM_MACRO_DELETE"].includes(message?.type)
-    ) {
+    if (["VIM_MACRO_GET", "VIM_MACRO_SET", "VIM_MACRO_DELETE"].includes(message?.type)) {
       try {
         return await handleMacroMessage(message, browserApi, sender);
       } catch (error) {
