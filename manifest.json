@@ -5,7 +5,12 @@
   "description": "Vim-inspired command interface for managing Firefox tabs and windows.",
   "permissions": ["tabs", "storage"],
   "background": {
-    "scripts": ["src/shared/selectors.js", "src/shared/registry.js", "src/shared/command-state.js", "src/background/background.js"]
+    "scripts": [
+      "src/shared/selectors.js",
+      "src/shared/registry.js",
+      "src/shared/command-state.js",
+      "src/background/background.js"
+    ]
   },
   "content_scripts": [
     {
