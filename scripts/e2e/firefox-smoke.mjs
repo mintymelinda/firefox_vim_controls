@@ -105,8 +105,11 @@ try {
   assert.ok(trigger, "fixture should expose a focusable trigger button");
   await request("POST", `/session/${sessionId}/element/${trigger}/click`);
   await sendKeys(sessionId, trigger, ":");
-  const prompt = await waitFor("prompt activation on an ordinary page", () =>
-    findElement(sessionId, "#fvc-command-panel"),
+  assert.ok(
+    await waitFor("prompt activation on an ordinary page", () =>
+      findElement(sessionId, "#fvc-command-panel"),
+    ),
+    "prompt should activate on an ordinary page",
   );
 
   const promptInput = await findElement(sessionId, "#fvc-command-panel input");
