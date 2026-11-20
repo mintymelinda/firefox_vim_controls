@@ -1092,7 +1092,6 @@ test("closes blank and discarded tabs through their selectors", async () => {
   assert.ok(api.calls.removed.includes(2));
 });
 
-
 test("moves a one-based numeric tab selector without using raw tab IDs", async () => {
   const api = createBrowserApi();
   const sender = { tab: { incognito: false } };
@@ -1101,12 +1100,7 @@ test("moves a one-based numeric tab selector without using raw tab IDs", async (
     url: "https://third.example",
     active: false,
   });
-  const moved = await handleMessage(
-    request("move", ["3"], ["new_window"]),
-    api,
-    selectors,
-    sender,
-  );
+  const moved = await handleMessage(request("move", ["3"], ["new_window"]), api, selectors, sender);
   assert.equal(moved.ok, true);
   assert.ok(api.calls.windowCreates.some((call) => call.tabId === third.id));
 });
@@ -1131,7 +1125,13 @@ test("close window preserves the active tab and requires confirmation for multip
     sender,
   );
   assert.equal(closed.ok, true);
-  assert.deepEqual(api.calls.removed.sort((a, b) => a - b), [2, third.id]);
+  assert.deepEqual(
+    api.calls.removed.sort((a, b) => a - b),
+    [2, third.id],
+  );
   const remaining = (await api.windows.getAll()).find((window) => window.id === 10);
-  assert.deepEqual(remaining.tabs.map((tab) => tab.id), [1]);
+  assert.deepEqual(
+    remaining.tabs.map((tab) => tab.id),
+    [1],
+  );
 });
