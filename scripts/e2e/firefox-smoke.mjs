@@ -139,12 +139,12 @@ try {
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
   );
 
-  await request("POST", `/session/${sessionId}/url`, { url: "about:addons" });
+  await request("POST", `/session/${sessionId}/url`, { url: "about:blank" });
   await delay(500);
   assert.equal(
     await findElement(sessionId, "#fvc-command-panel"),
     null,
-    "restricted Firefox pages must not receive the content-script prompt",
+    "about:blank must not receive the content-script prompt without an explicit match-about-blank opt-in",
   );
 
   console.log(
