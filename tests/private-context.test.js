@@ -70,13 +70,16 @@ function createBrowserApi() {
       },
     },
   };
-  const calls = { gets: [], sets: [] };
+  const calls = { gets: [], sets: [], windowGets: 0 };
   return {
     windows,
     storageData,
     calls,
     windowsApi: {
-      getAll: async () => windows,
+      getAll: async () => {
+        calls.windowGets += 1;
+        return windows;
+      },
     },
     storage: {
       local: {
@@ -108,7 +111,7 @@ test("normal snapshots exclude private windows and incognito tabs regardless of 
     snapshot.flatMap((window) => window.tabs).map((tab) => tab.url),
     ["https://public.example/"],
   );
-  assert.doesNotMatch(JSON.stringify(snapshot), /private\.example|Private secret title/);
+  assert.doesNotMatch(JSON.stringify(snapshot), /private\.example|private-in-normal\.example|Private secret title/);
 });
 
 test("private session and workspace saves never persist private URL or title data", async () => {
@@ -164,6 +167,7 @@ test("private state reads return an empty transient state without reading storag
   });
   assert.deepEqual(api.calls.gets, []);
   assert.deepEqual(api.calls.sets, []);
+  assert.equal(api.calls.windowGets, 0);
   assert.deepEqual(api.storageData, before);
 });
 
