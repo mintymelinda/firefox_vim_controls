@@ -71,11 +71,16 @@ try {
   });
   sessionId = session.sessionId;
   assert.ok(sessionId, "Firefox WebDriver session should be created");
+  const capabilities = session.capabilities || {};
+  console.log(
+    `Firefox ${capabilities.browserVersion || "unknown"}; geckodriver ${capabilities["moz:geckodriverVersion"] || "unknown"}`,
+  );
 
   const addon = await readFile(extensionPath);
   const installedId = await request("POST", `/session/${sessionId}/moz/addon/install`, {
     addon: addon.toString("base64"),
     temporary: true,
+    allowPrivateBrowsing: false,
   });
   assert.ok(installedId, "development extension should install temporarily");
 
