@@ -100,7 +100,10 @@ test("supports read-only inspection and excludes private windows", async () => {
   const duplicates = await handleMessage(request("duplicates"), api, selectors);
 
   assert.equal(tabs.output.length, 4);
-  assert.equal(tabs.output.some((line) => line.includes("private.example")), false);
+  assert.equal(
+    tabs.output.some((line) => line.includes("private.example")),
+    false,
+  );
   assert.match(current.output[0], /Twitch/);
   assert.deepEqual(domains.output, ["example.com", "twitch.tv", "youtube.com"]);
   assert.match(duplicates.output[0], /Duplicate group/);
@@ -112,7 +115,10 @@ test("protects the final tab in every window during close operations", () => {
     window.tabs.map((tab) => ({ ...tab, windowId: window.id })),
   );
   const result = removableTabs(tabs, windows);
-  assert.deepEqual(result.removable.map((tab) => tab.id), [2, 4]);
+  assert.deepEqual(
+    result.removable.map((tab) => tab.id),
+    [2, 4],
+  );
   assert.equal(result.protectedCount, 2);
 });
 
@@ -163,9 +169,7 @@ test("moves selected tabs to a new or existing normal window", async () => {
     api,
     selectors,
   );
-  assert.deepEqual(api.calls.moved, [
-    { ids: [4], properties: { windowId: 20, index: -1 } },
-  ]);
+  assert.deepEqual(api.calls.moved, [{ ids: [4], properties: { windowId: 20, index: -1 } }]);
   assert.match(newWindow.output[0], /new window 20/);
 
   const existing = await handleMessage(

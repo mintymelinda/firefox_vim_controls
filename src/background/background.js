@@ -149,7 +149,15 @@
     throw new Error("Move destination must be new_window, current_window, or window 2.");
   }
 
-  async function executeMutation(command, selected, windows, focusedWindow, browserApi, selector, confirmed) {
+  async function executeMutation(
+    command,
+    selected,
+    windows,
+    focusedWindow,
+    browserApi,
+    selector,
+    confirmed,
+  ) {
     const name = command.name;
     if (name === "close") {
       const { removable, protectedCount } = removableTabs(selected, windows);
@@ -302,10 +310,22 @@
       });
       return { ok: true, output: lines.length ? lines : ["No tabs matched."] };
     }
-    return executeMutation(command, selected, windows, focusedWindow, browserApi, selector, confirmed);
+    return executeMutation(
+      command,
+      selected,
+      windows,
+      focusedWindow,
+      browserApi,
+      selector,
+      confirmed,
+    );
   }
 
-  async function handleMessage(message, browserApi = root.browser, selectors = root.VimTabSelectors) {
+  async function handleMessage(
+    message,
+    browserApi = root.browser,
+    selectors = root.VimTabSelectors,
+  ) {
     const validationError = validateCommandRequest(message);
     if (validationError) return { ok: false, error: validationError };
     const { command } = message;
