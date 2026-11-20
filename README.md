@@ -16,7 +16,7 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. `n
 
 ## Current status
 
-Phases 1–10 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, browser utility commands, and relative/cleanup selectors.
+Phases 1–11 are implemented on the current feature line: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, browser utility commands, relative/cleanup selectors, and numeric tab targeting.
 
 See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md).
 
@@ -40,8 +40,8 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:duplicates` — list tabs sharing the same URL (ignoring URL fragments and leading `www.`).
 - `:audible [selector]` — list audible tabs, optionally narrowed by a selector.
 - `:loading [selector]` — list tabs still loading, optionally narrowed by a selector.
-- `:close [selector] [--confirm]` — close matching tabs; supports `other`, `left`, `right`, `empty`, `pinned`, `audible`, `discarded`, and `domain example.com`. Closing multiple tabs requires a preview and explicit confirmation.
-- `:move [selector], new_window|current_window|window 2` — move matching tabs (including `other`, `left`, `right`, `empty`, and `discarded`) to another window.
+- `:close [selector] [--confirm]` — close matching tabs; supports `other`, `window` (same as `other`), `left`, `right`, `empty`, `pinned`, `audible`, `discarded`, numeric positions, and `domain example.com`. Closing multiple tabs requires a preview and explicit confirmation.
+- `:move [selector], new_window|current_window|window 2` — move matching tabs (including `other`, `left`, `right`, `empty`, `discarded`, and one-based numeric positions such as `3`) to another window.
 - `:reload [selector] [--confirm]` — reload matching tabs; reloading multiple tabs requires confirmation.
 - `:mute [selector]` / `:unmute [selector]` — change tab audio state.
 - `:pin [selector]` / `:unpin [selector]` — pin or unpin matching tabs.
@@ -87,7 +87,7 @@ Command history, aliases, and preferences are stored locally with Firefox extens
 - `:sort domain|title|url|recent [selector]` — sort matching tabs within each window.
 - `:reverse [selector]` / `:shuffle [selector]` — reorder matching tabs within each window. Pinned and unpinned tabs are reordered separately.
 
-Selectors include `all`, `active`, `other`, `left`, `right`, `empty`, `pinned`, `audible`, `loading`, `discarded`, `duplicates`, `twitch`, `youtube`, `domain:example.com` (or `domain example.com`), and `window:2`. Relative selectors use the focused normal window. Tab-group selectors are not implemented because a stable Firefox WebExtension API is not assumed. Domain matching includes subdomains but does not match lookalike suffixes such as `twitch.tv.evil.example`. Private windows are excluded from these commands.
+Selectors include `all`, `active`, `other`, `left`, `right`, `empty`, `pinned`, `audible`, `loading`, `discarded`, `duplicates`, one-based numeric positions (`3` or `tab:3`), `twitch`, `youtube`, `domain:example.com` (or `domain example.com`), and `window:2`. Relative selectors use the focused normal window. Tab-group selectors are not implemented because a stable Firefox WebExtension API is not assumed. Domain matching includes subdomains but does not match lookalike suffixes such as `twitch.tv.evil.example`. Private windows are excluded from these commands.
 
 Broad close, reload, and discard operations show a preview and require `--confirm`. The extension protects the last tab in each normal window when closing multiple tabs.
 
