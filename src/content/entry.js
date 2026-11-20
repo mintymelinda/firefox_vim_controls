@@ -314,7 +314,8 @@
         const commands = parsed.commands
           .slice(1)
           .map((command) => globalThis.VimCommandState.expandAlias(command, aliases))
-          .map(commandForExecution);
+          .map(commandForExecution)
+          .map(({ name, args, destination }) => ({ name, args, destination }));
         const response = await browser.runtime.sendMessage({
           type: "VIM_MACRO_SET",
           name: first.args[1],
