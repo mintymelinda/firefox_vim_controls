@@ -9,6 +9,7 @@ const registry = require("../src/shared/registry.js");
 const chain = require("../src/shared/command-chain.js");
 const suggestions = require("../src/shared/suggestions.js");
 const promptOutput = require("../src/shared/prompt-output.js");
+const { validateCommandRequest } = require("../src/background/background.js");
 
 class FakeElement {
   constructor(document, tagName = "div") {
@@ -290,6 +291,11 @@ test("Enter sends a structured command request and displays the background respo
     type: "VIM_COMMAND_REQUEST",
     command: { name: "tabs", args: ["twitch"], destination: [] },
   });
+  assert.equal(validateCommandRequest(request), null);
+  assert.match(
+    validateCommandRequest({ ...request, command: { ...request.command, unexpected: true } }),
+    /Unexpected command properties/,
+  );
   assert.ok(harness.messages.some((message) => message.type === "VIM_STATE_SET"));
   assert.ok(
     harness.document.getElementById("fvc-command-panel").output.children.some(
