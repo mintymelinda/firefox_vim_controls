@@ -44,7 +44,11 @@ function makeWindows() {
 
 function createBrowserApi() {
   const windows = makeWindows();
-  const syncIndexes = (window) => window.tabs.forEach((tab, index) => (tab.index = index));
+  const syncIndexes = (window) => {
+    window.tabs.forEach((tab, index) => {
+      tab.index = index;
+    });
+  };
   windows.forEach(syncIndexes);
   const calls = {
     removed: [],
