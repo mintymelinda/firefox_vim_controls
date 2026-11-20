@@ -11,9 +11,13 @@
   });
 
   function normalizeName(value) {
-    const name = String(value || "").trim().toLowerCase();
+    const name = String(value || "")
+      .trim()
+      .toLowerCase();
     if (name.length > LIMITS.nameLength || !/^[a-z0-9][a-z0-9_-]*$/i.test(name)) {
-      throw new Error("Macro names must start with a letter or number and use only letters, numbers, _ or -.");
+      throw new Error(
+        "Macro names must start with a letter or number and use only letters, numbers, _ or -.",
+      );
     }
     return name;
   }
