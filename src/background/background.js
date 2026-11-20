@@ -168,11 +168,7 @@
       fvcCommandAliases: aliases,
       fvcCommandPreferences: preferences,
     });
-    if (
-      browserApi.tabs?.query &&
-      browserApi.tabs?.sendMessage &&
-      sender.tab?.id !== undefined
-    ) {
+    if (browserApi.tabs?.query && browserApi.tabs?.sendMessage && sender.tab?.id !== undefined) {
       const tabs = await browserApi.tabs.query({});
       await Promise.all(
         tabs
