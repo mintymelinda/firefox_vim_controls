@@ -155,7 +155,8 @@ class FakeDocument {
 
   async dispatch(type, event = {}) {
     const listeners = this.listeners.get(type) || [];
-    for (const listener of listeners) await listener({ ...event, target: event.target || this.activeElement });
+    for (const listener of listeners)
+      await listener({ ...event, target: event.target || this.activeElement });
   }
 
   getElementById(id) {
@@ -218,7 +219,13 @@ async function createPromptHarness({ history = ["tabs", "help"], privateContext 
     messages,
     runtimeListeners,
     open: async (target = document.body) => {
-      await document.dispatch("keydown", { key: ":", target, preventDefault() { this.prevented = true; } });
+      await document.dispatch("keydown", {
+        key: ":",
+        target,
+        preventDefault() {
+          this.prevented = true;
+        },
+      });
       return document.getElementById("fvc-command-panel");
     },
     key: async (key, options = {}) => {
@@ -227,7 +234,9 @@ async function createPromptHarness({ history = ["tabs", "help"], privateContext 
       await input.dispatch("keydown", {
         key,
         shiftKey: Boolean(options.shiftKey),
-        preventDefault() { this.prevented = true; },
+        preventDefault() {
+          this.prevented = true;
+        },
       });
       await Promise.resolve();
       await Promise.resolve();
@@ -273,7 +282,10 @@ test("Tab completion is interactive, while Shift+Tab does not replace the comman
   input.value = ":w";
   await harness.key("Tab");
   assert.equal(input.value, ":w");
-  assert.match(harness.document.getElementById("fvc-command-panel").output.children[0].textContent, /tabs/);
+  assert.match(
+    harness.document.getElementById("fvc-command-panel").output.children[0].textContent,
+    /tabs/,
+  );
   input.value = ":wi";
   await harness.key("Tab", { shiftKey: true });
   assert.equal(input.value, ":wi");
@@ -298,9 +310,9 @@ test("Enter sends a structured command request and displays the background respo
   );
   assert.ok(harness.messages.some((message) => message.type === "VIM_STATE_SET"));
   assert.ok(
-    harness.document.getElementById("fvc-command-panel").output.children.some(
-      (line) => line.textContent === "background accepted command",
-    ),
+    harness.document
+      .getElementById("fvc-command-panel")
+      .output.children.some((line) => line.textContent === "background accepted command"),
   );
 });
 
@@ -310,7 +322,16 @@ test("private prompt sessions do not read or write persistent command state", as
   const input = harness.document.getElementById("fvc-command-panel").input;
   input.value = ":tabs";
   await harness.key("Enter");
-  assert.equal(harness.messages.some((message) => message.type === "VIM_STATE_GET"), false);
-  assert.equal(harness.messages.some((message) => message.type === "VIM_STATE_SET"), false);
-  assert.equal(harness.messages.some((message) => message.type === "VIM_COMMAND_REQUEST"), true);
+  assert.equal(
+    harness.messages.some((message) => message.type === "VIM_STATE_GET"),
+    false,
+  );
+  assert.equal(
+    harness.messages.some((message) => message.type === "VIM_STATE_SET"),
+    false,
+  );
+  assert.equal(
+    harness.messages.some((message) => message.type === "VIM_COMMAND_REQUEST"),
+    true,
+  );
 });
