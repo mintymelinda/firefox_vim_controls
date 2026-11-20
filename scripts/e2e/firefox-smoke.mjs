@@ -22,9 +22,8 @@ async function request(method, path, body) {
   });
   const payload = await response.json();
   if (!response.ok || payload.value?.error) {
-    throw new Error(
-      `WebDriver ${method} ${path} failed: ${payload.value?.message || response.statusText}`,
-    );
+    const message = payload.value?.message || payload.message || JSON.stringify(payload);
+    throw new Error(`WebDriver ${method} ${path} failed: ${message}`);
   }
   return payload.value;
 }
@@ -89,10 +88,10 @@ try {
   }
 
   const addon = await readFile(extensionPath);
+  // Omitting allowPrivateBrowsing keeps the default disabled and remains compatible with Firefox 115.
   const installedId = await request("POST", `/session/${sessionId}/moz/addon/install`, {
     addon: addon.toString("base64"),
     temporary: true,
-    allowPrivateBrowsing: false,
   });
   assert.ok(installedId, "development extension should install temporarily");
 
