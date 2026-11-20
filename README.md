@@ -61,7 +61,7 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:workspace switch name` — open a workspace in new normal window(s), leaving existing windows untouched.
 - `:workspace list` / `:workspace rename old new` — list or rename saved workspaces.
 
-Sessions and workspaces are local snapshots of HTTP(S) tabs only. They preserve window grouping, tab order, pinned state, and the active tab. Firefox internal pages, extension pages, blank tabs, and URLs with embedded credentials are excluded. Each collection is bounded (30 sessions, 20 workspaces, up to 20 windows and 500 tabs per snapshot). Private-window commands are rejected and private tabs are never saved.
+Sessions and workspaces are local snapshots of HTTP(S) tabs only. They preserve window grouping, tab order, pinned state, and the active tab. Firefox internal pages, extension pages, blank tabs, and URLs with embedded credentials are excluded. Each collection is bounded (20 sessions, 10 workspaces, up to 20 windows and 300 tabs per snapshot), with an 8 MiB aggregate storage budget. Private-window commands are rejected and private tabs are never saved.
 
 Command history, aliases, and preferences are stored locally with Firefox extension storage. They are kept in memory only in private browsing contexts and are never written to persistent storage there. Tab completion includes command names, aliases, selectors, destinations, and preference values.
 - `:stop` remains planned: Firefox WebExtensions does not expose a reliable stop-loading method without injecting page script.
