@@ -8,6 +8,13 @@ test("registry distinguishes implemented and planned commands", () => {
   assert.equal(registry.get("windows").status, "implemented");
   assert.equal(registry.get("merge").status, "implemented");
   assert.equal(registry.get("sort").status, "implemented");
+  assert.equal(registry.get("open").status, "implemented");
+  assert.equal(registry.get("search").status, "implemented");
+  assert.equal(registry.get("back").status, "implemented");
+  assert.equal(registry.get("forward").status, "implemented");
+  assert.equal(registry.get("refresh").status, "implemented");
+  assert.equal(registry.get("home").status, "implemented");
+  assert.equal(registry.get("stop").status, "planned");
 });
 
 test("registry lookup is case-insensitive and returns a copy", () => {
