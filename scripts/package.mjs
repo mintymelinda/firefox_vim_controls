@@ -27,7 +27,9 @@ export function createZip(entries) {
   const localParts = [];
   const centralParts = [];
   let localOffset = 0;
-  const sorted = [...entries].sort((left, right) => left.name.localeCompare(right.name));
+  const sorted = [...entries].sort((left, right) =>
+    left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+  );
 
   for (const entry of sorted) {
     const name = Buffer.from(entry.name.replaceAll("\\", "/"), "utf8");
@@ -104,7 +106,7 @@ async function validatePackageFiles(entries) {
   const manifestData = byName.get("manifest.json");
   if (!manifestData) throw new Error("Built package is missing manifest.json.");
   const manifest = JSON.parse(manifestData.toString("utf8"));
-  if (manifest.manifest_version !== 2 || !manifest.browser_specific_settings?.gecko) {
+  if (manifest.manifest_version !== 2 || !manifest.browser_specific_settings?.gecko || !manifest.default_locale) {
     throw new Error("Built manifest is not a supported Firefox WebExtension manifest.");
   }
   const scripts = [
@@ -123,6 +125,10 @@ async function validatePackageFiles(entries) {
 export async function packageExtension() {
   const entries = await collectFiles(dist);
   const manifest = await validatePackageFiles(entries);
+  const project = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
+  if (project.version !== manifest.version) {
+    throw new Error("package.json and manifest.json versions must match.");
+  }
   const zip = createZip(entries);
   await mkdir(artifacts, { recursive: true });
   const output = resolve(artifacts, `firefox-vim-controls-${manifest.version}.zip`);
