@@ -75,12 +75,14 @@ test("rejects invalid or unknown selectors", () => {
   assert.throws(() => selectTabs(tabs, "private"), /Unknown tab selector/);
 });
 
-
 test("selects tabs currently loading", () => {
   const tabs = [
     { id: 1, url: "https://example.com", status: "loading" },
     { id: 2, url: "https://twitch.tv", status: "complete" },
     { id: 3, url: "https://youtube.com", status: "loading" },
   ];
-  assert.deepEqual(selectors.selectTabs(tabs, "loading").map((tab) => tab.id), [1, 3]);
+  assert.deepEqual(
+    selectors.selectTabs(tabs, "loading").map((tab) => tab.id),
+    [1, 3],
+  );
 });
