@@ -479,8 +479,10 @@
       runCommand();
     } else if (event.key === "Tab") {
       event.preventDefault();
-      await stateReady;
-      completeInput();
+      if (!event.shiftKey) {
+        await stateReady;
+        completeInput();
+      }
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       await stateReady;
