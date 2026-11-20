@@ -29,10 +29,7 @@
       const stored = response.state || {};
       preferences = globalThis.VimCommandState.normalizePreferences(stored.preferences);
       history.push(
-        ...globalThis.VimCommandState.normalizeHistory(
-          stored.history,
-          preferences.historyLimit,
-        ),
+        ...globalThis.VimCommandState.normalizeHistory(stored.history, preferences.historyLimit),
       );
       aliases = globalThis.VimCommandState.normalizeAliases(stored.aliases, commandNames);
       historyIndex = history.length;
