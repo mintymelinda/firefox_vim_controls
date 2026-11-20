@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "Firefox Vim Controls",
+  "version": "0.1.0",
+  "description": "Vim-inspired command interface for managing Firefox tabs and windows.",
+  "permissions": [],
+  "background": {
+    "scripts": ["src/background/background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/shared/parser.js", "src/content/entry.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "firefox-vim-controls@mintymelinda",
+      "strict_min_version": "115.0"
+    }
+  }
+}
