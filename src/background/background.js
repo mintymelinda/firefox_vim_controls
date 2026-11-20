@@ -1472,12 +1472,13 @@
         currentWindowId: focusedWindow?.id,
         windows,
       });
-      const selectedStatusTabs = command.args.length
-        ? selectors.selectTabs(statusMatched, command.args.join(" "), {
-            currentWindowId: focusedWindow?.id,
-            windows,
-          })
-        : statusMatched;
+      const selectedStatusTabs =
+        selector !== "all"
+          ? selectors.selectTabs(statusMatched, selector, {
+              currentWindowId: focusedWindow?.id,
+              windows,
+            })
+          : statusMatched;
       const lines = selectedStatusTabs.map((tab) => {
         const window = windows.find((item) => item.id === tab.windowId);
         return tabSummary(tab, window.index);
