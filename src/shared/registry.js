@@ -64,6 +64,8 @@
       summary: "Save, load, append, and manage named sessions",
     },
     { name: "workspace", status: "implemented", summary: "Create and switch named workspaces" },
+    { name: "macro", status: "implemented", summary: "Define and run safe command macros" },
+    { name: "undo", status: "implemented", summary: "Undo the last supported reversible command" },
   ];
 
   const registry = {
