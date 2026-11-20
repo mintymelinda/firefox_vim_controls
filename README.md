@@ -16,11 +16,18 @@ The image pins Node and Biome versions. `npm ci` uses the committed lockfile. `n
 
 ## Current status
 
-Phases 1–11 are implemented on `main`: command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, browser utility commands, relative cleanup selectors, and numeric tab targeting. Prompt-level activation, history/completion, and messaging interactions are covered by deterministic tests.
+Phases 1–13 are implemented on `main`. This includes command mode, tab/window management, navigation, search, persistent command history, aliases, preferences, local sessions/workspaces, safe macros, command chains, undo, accessibility hardening, localization readiness, AMO packaging, browser utility commands, relative cleanup selectors, numeric tab targeting, and real-Firefox browser regression coverage.
 
-See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md). For real-browser smoke tests, run `docker compose run --rm browser-tests npm run test:browser` against
-current Stable, or `docker compose run --rm browser-tests-115 npm run test:browser` against Firefox
-115 ESR.
+Phase 12 added the real-Firefox smoke harness (PR [#28](https://github.com/mintymelinda/firefox_vim_controls/pull/28)). Phase 13 added the pinned Firefox 115 ESR target and browser-level prompt accessibility/focus/output assertions (PR [#30](https://github.com/mintymelinda/firefox_vim_controls/pull/30)). Both browser targets passed CI run [#153](https://github.com/mintymelinda/firefox_vim_controls/actions/runs/44816732952): Firefox 115.45.0 ESR and Firefox 159.0.1 Stable, each with geckodriver 0.37.1.
+
+See [Firefox compatibility](docs/compatibility.md), [accessibility checks](docs/accessibility.md), and the [release/AMO packaging guide](docs/release.md). Run the same real-browser smoke suite against both targets with:
+
+```sh
+docker compose run --rm browser-tests npm run test:browser
+docker compose run --rm browser-tests-115 npm run test:browser
+```
+
+The browser suite is focused regression coverage, not full command-catalogue or release certification. Privileged Firefox pages, broader command workflows, private-window release behavior, and actual screen-reader announcements remain manual release checks.
 
 ## Keyboard behaviour
 
