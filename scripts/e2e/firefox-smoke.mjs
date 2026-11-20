@@ -166,7 +166,7 @@ try {
     "focus leaving the modal prompt should be returned to its input",
   );
 
-  await sendKeys(sessionId, promptInput, "\\uE00C");
+  await sendKeys(sessionId, promptInput, "\uE00C");
   await waitFor(
     "prompt dismissal with Escape",
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
@@ -187,7 +187,7 @@ try {
     "typing a colon in an editable control must not open the prompt",
   );
 
-  await sendKeys(sessionId, editable, "\\uE00C");
+  await sendKeys(sessionId, editable, "\uE00C");
   await request("POST", `/session/${sessionId}/element/${trigger}/click`);
   await sendKeys(sessionId, trigger, ":");
   assert.ok(
@@ -199,7 +199,7 @@ try {
 
   const commandInput = await findElement(sessionId, "#fvc-command-panel input");
   await sendKeys(sessionId, commandInput, ":tabs");
-  await sendKeys(sessionId, commandInput, "\\uE007");
+  await sendKeys(sessionId, commandInput, "\uE007");
   const output = await waitFor("background command response", async () => {
     const element = await findElement(sessionId, "#fvc-command-panel .fvc-output");
     if (!element) return null;
@@ -214,7 +214,7 @@ try {
   );
   for (let index = 0; index < 201; index += 1) {
     await sendKeys(sessionId, commandInput, ":version");
-    await sendKeys(sessionId, commandInput, "\\uE007");
+    await sendKeys(sessionId, commandInput, "\uE007");
     const expectedCount = Math.min(initialOutputCount + index + 1, 200);
     await waitFor(`version output ${index + 1}`, async () => {
       const state = await executeScript(
@@ -233,7 +233,7 @@ try {
     "prompt output should retain no more than 200 entries",
   );
 
-  await sendKeys(sessionId, commandInput, "\\uE00C");
+  await sendKeys(sessionId, commandInput, "\uE00C");
   await waitFor(
     "prompt close after command",
     async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
