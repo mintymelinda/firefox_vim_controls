@@ -12,7 +12,7 @@
   let lastCompletion = "";
 
   const implemented = new Set(["help", "version", "clear"]);
-  const commandNames = ["help", "version", "clear", "tabs", "count", "current", "domains", "duplicates", "close", "move", "reload", "mute", "unmute", "pin", "unpin", "discard", "windows", "window", "new_window", "sort", "reverse", "shuffle"];
+  const commandNames = globalThis.VimCommandRegistry.names();
 
   function appendOutput(message, kind = "info") {
     const line = document.createElement("div");
