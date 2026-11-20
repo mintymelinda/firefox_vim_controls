@@ -301,7 +301,7 @@ try {
     "the unrelated-domain tab should remain in its original window",
   );
   assert.ok(
-    windowLines.some((line) => line.includes("fixture:4173/second")),
+    windowLines.some((line) => line.includes("Firefox Vim Controls fixture")),
     "the selected fixture tabs should be grouped in the new window",
   );
   await runCommand(":count all", "3 tab(s) matched all.");
