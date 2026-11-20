@@ -832,7 +832,7 @@
         return { ok: true, output: [message] };
       }
       if (removable.length > 1 && !confirmed) {
-        return { ok: true, output: previewLines(name, selector, removable, windows) };
+        return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, removable, windows) };
       }
       const result = await performPerTab(removable, (id) => browserApi.tabs.remove(id));
       if (protectedCount) result.output.push(`Kept one tab open in ${protectedCount} window(s).`);
@@ -842,7 +842,7 @@
     if (name === "reload") {
       if (!selected.length) return { ok: true, output: ["No tabs matched."] };
       if (selected.length > 1 && !confirmed) {
-        return { ok: true, output: previewLines(name, selector, selected, windows) };
+        return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, selected, windows) };
       }
       return performPerTab(selected, (id) => browserApi.tabs.reload(id));
     }
@@ -857,7 +857,7 @@
         return { ok: true, output: [message] };
       }
       if (eligible.length > 1 && !confirmed) {
-        return { ok: true, output: previewLines(name, selector, eligible, windows) };
+        return { ok: true, requiresConfirmation: true, output: previewLines(name, selector, eligible, windows) };
       }
       const result = await performPerTab(eligible, (id) => browserApi.tabs.discard(id));
       if (skipped) result.output.push(`Skipped ${skipped} active or already-discarded tab(s).`);
@@ -1042,7 +1042,7 @@
     });
     if (!selected.length) return { ok: true, output: [`No tabs matched ${selector}.`] };
     if (command.name === "refresh" && selected.length > 1 && !confirmed) {
-      return { ok: true, output: previewLines("refresh", selector, selected, windows) };
+      return { ok: true, requiresConfirmation: true, output: previewLines("refresh", selector, selected, windows) };
     }
     const operations = {
       back: (id) => browserApi.tabs.goBack(id),
