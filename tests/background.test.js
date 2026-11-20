@@ -118,6 +118,10 @@ test("validates command message shape and rejects unexpected data", () => {
     validateCommandRequest(request("tabs", ["x".repeat(257)])),
     /Invalid command arguments/,
   );
+  assert.equal(
+    validateCommandRequest(request("open", [`https://example.com/?q=${"x".repeat(1000)}`])),
+    null,
+  );
 });
 
 test("supports read-only inspection and excludes private windows", async () => {
