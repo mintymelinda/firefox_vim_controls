@@ -10,7 +10,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/shared/parser.js", "src/shared/activation.js", "src/content/entry.js"],
+      "js": ["src/shared/parser.js", "src/shared/activation.js", "src/shared/registry.js", "src/content/entry.js"],
       "run_at": "document_idle"
     }
   ],
