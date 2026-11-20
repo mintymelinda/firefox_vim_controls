@@ -172,7 +172,9 @@
   }
 
   function resolveWindowSelection(value, windows, focusedWindow) {
-    const selector = String(value || "").trim().toLowerCase();
+    const selector = String(value || "")
+      .trim()
+      .toLowerCase();
     if (!selector) {
       if (!focusedWindow) throw new Error("There is no focused normal browser window.");
       return focusedWindow;
@@ -419,7 +421,12 @@
         const inWindow = selected.filter((tab) => tab.windowId === window.id);
         changed += await reorderWindow(window, inWindow, name, key, browserApi, selectors);
       }
-      return { ok: true, output: [`${name === "sort" ? `Sorted by ${key}` : name} selection; ${changed} tab move(s) applied.`] };
+      return {
+        ok: true,
+        output: [
+          `${name === "sort" ? `Sorted by ${key}` : name} selection; ${changed} tab move(s) applied.`,
+        ],
+      };
     }
 
     if (name === "move") {
@@ -472,18 +479,23 @@
   async function executeCommand(command, browserApi, selectors) {
     const windows = await getNormalWindowSnapshot(browserApi);
     const focusedWindow = windows.find((window) => window.focused);
-    if (["windows", "window", "new_window", "fullscreen", "minimize", "maximize", "merge"].includes(command.name)) {
+    if (
+      ["windows", "window", "new_window", "fullscreen", "minimize", "maximize", "merge"].includes(
+        command.name,
+      )
+    ) {
       return executeWindowCommand(command, windows, focusedWindow, browserApi);
     }
     const tabs = windows.flatMap((window) =>
       window.tabs.map((tab) => ({ ...tab, windowId: window.id })),
     );
     const { confirmed, selector: defaultSelector } = commandOptions(command);
-    const selector = command.name === "sort"
-      ? (command.args.slice(1).join(" ") || "all")
-      : command.name === "split"
-        ? (command.args.join(" ") || "all")
-        : defaultSelector;
+    const selector =
+      command.name === "sort"
+        ? command.args.slice(1).join(" ") || "all"
+        : command.name === "split"
+          ? command.args.join(" ") || "all"
+          : defaultSelector;
 
     if (command.name === "current") {
       const current = focusedWindow?.tabs.find((tab) => tab.active);
@@ -491,7 +503,10 @@
       return { ok: true, output: [tabSummary(current, focusedWindow.index)] };
     }
 
-    if (command.name === "sort" && !["domain", "title", "url", "recent"].includes(command.args[0])) {
+    if (
+      command.name === "sort" &&
+      !["domain", "title", "url", "recent"].includes(command.args[0])
+    ) {
       return { ok: false, error: "Sort syntax: :sort domain|title|url|recent [selector]." };
     }
     if (command.name === "move" && !command.destination.length) {

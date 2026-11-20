@@ -235,7 +235,6 @@ test("validates move destinations and preserves read-only inspection commands", 
   assert.deepEqual(result.output, ["2 tab(s) matched youtube."]);
 });
 
-
 test("lists, focuses, creates, and changes normal window states", async () => {
   const api = createBrowserApi();
   const windows = await handleMessage(request("windows"), api, selectors);
@@ -279,7 +278,6 @@ test("sorts, reverses, and shuffles within pinned and unpinned partitions", asyn
   const shuffled = await handleMessage(request("shuffle"), api, selectors);
   assert.match(shuffled.output[0], /shuffle selection/);
 });
-
 
 test("sorting keeps pinned and unpinned tabs in their own positions", async () => {
   const api = createBrowserApi();
