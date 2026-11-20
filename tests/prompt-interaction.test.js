@@ -284,7 +284,7 @@ test("Tab completion is interactive, while Shift+Tab does not replace the comman
   assert.equal(input.value, ":w");
   assert.match(
     harness.document.getElementById("fvc-command-panel").output.children[0].textContent,
-    /tabs/,
+    /windows/,
   );
   input.value = ":wi";
   await harness.key("Tab", { shiftKey: true });
