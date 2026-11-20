@@ -23,7 +23,7 @@
     { name: "new_window", status: "planned", summary: "Open a new browser window" },
     { name: "sort", status: "planned", summary: "Sort tabs" },
     { name: "reverse", status: "planned", summary: "Reverse tab order" },
-    { name: "shuffle", status: "planned", summary: "Shuffle tab order" }
+    { name: "shuffle", status: "planned", summary: "Shuffle tab order" },
   ];
 
   const registry = {
@@ -36,7 +36,7 @@
     },
     names() {
       return commands.map((command) => command.name);
-    }
+    },
   };
 
   root.VimCommandRegistry = registry;

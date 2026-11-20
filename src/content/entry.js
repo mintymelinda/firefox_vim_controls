@@ -97,13 +97,24 @@
       for (const command of parsed.commands) {
         const definition = globalThis.VimCommandRegistry.get(command.name);
         if (!definition || definition.status !== "implemented") {
-          appendOutput(`Unknown or not-yet-implemented command: ${command.name}. Try :help.`, "error");
+          const suggestions = globalThis.VimCommandSuggestions.suggestCommands(
+            command.name,
+            commandNames,
+          );
+          const hint = suggestions.length
+            ? ` Did you mean ${suggestions.map((name) => `:${name}`).join(", ")}?`
+            : " Try :help.";
+          appendOutput(`Unknown or not-yet-implemented command: ${command.name}.${hint}`, "error");
           continue;
         }
         if (command.name === "help") {
           const allCommands = globalThis.VimCommandRegistry.all();
-          const available = allCommands.filter((item) => item.status === "implemented").map((item) => `:${item.name}`);
-          const planned = allCommands.filter((item) => item.status === "planned").map((item) => `:${item.name}`);
+          const available = allCommands
+            .filter((item) => item.status === "implemented")
+            .map((item) => `:${item.name}`);
+          const planned = allCommands
+            .filter((item) => item.status === "planned")
+            .map((item) => `:${item.name}`);
           appendOutput(`Available: ${available.join(", ")}`);
           appendOutput(`Planned: ${planned.join(", ")}`);
           appendOutput("Examples: :move twitch, new_window · :close duplicates · :sort domain");
@@ -142,15 +153,22 @@
     }
   }
 
-  document.addEventListener("keydown", (event) => {
-    if (panel) return;
-    if (event.key === "Escape" && globalThis.VimCommandActivation.isEditableTarget(event.target)) {
-      event.target.blur?.();
-      return;
-    }
-    if (globalThis.VimCommandActivation.shouldOpenCommandMode(event)) {
-      event.preventDefault();
-      showPanel();
-    }
-  }, true);
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (panel) return;
+      if (
+        event.key === "Escape" &&
+        globalThis.VimCommandActivation.isEditableTarget(event.target)
+      ) {
+        event.target.blur?.();
+        return;
+      }
+      if (globalThis.VimCommandActivation.shouldOpenCommandMode(event)) {
+        event.preventDefault();
+        showPanel();
+      }
+    },
+    true,
+  );
 })();
