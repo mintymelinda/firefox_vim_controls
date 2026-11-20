@@ -97,39 +97,54 @@
     const normalized = root.VimSessionState.normalizeSnapshot(snapshot);
     if (!normalized) throw new Error("The saved snapshot contains no restorable tabs.");
     const createdWindows = [];
-    for (const savedWindow of normalized.windows) {
-      const [firstTab, ...remainingTabs] = savedWindow.tabs;
-      const createdWindow = await browserApi.windows.create({
-        url: firstTab.url,
-        focused: false,
-      });
-      const windowTabs = await browserApi.tabs.query({ windowId: createdWindow.id });
-      const restoredTabs = windowTabs.slice(0, 1);
-      if (restoredTabs[0] && firstTab.pinned) {
-        await browserApi.tabs.update(restoredTabs[0].id, { pinned: true });
-      }
-      for (const savedTab of remainingTabs) {
-        const createdTab = await browserApi.tabs.create({
-          windowId: createdWindow.id,
-          url: savedTab.url,
-          active: false,
-          pinned: savedTab.pinned,
+    try {
+      for (const savedWindow of normalized.windows) {
+        const [firstTab, ...remainingTabs] = savedWindow.tabs;
+        const createdWindow = await browserApi.windows.create({
+          url: firstTab.url,
+          focused: false,
         });
-        restoredTabs.push(createdTab);
+        createdWindows.push(createdWindow.id);
+        const windowTabs = await browserApi.tabs.query({ windowId: createdWindow.id });
+        const restoredTabs = windowTabs.slice(0, 1);
+        if (!restoredTabs[0]) throw new Error("Firefox did not return the first restored tab.");
+        if (firstTab.pinned) {
+          await browserApi.tabs.update(restoredTabs[0].id, { pinned: true });
+        }
+        for (const savedTab of remainingTabs) {
+          const createdTab = await browserApi.tabs.create({
+            windowId: createdWindow.id,
+            url: savedTab.url,
+            active: false,
+            pinned: savedTab.pinned,
+          });
+          restoredTabs.push(createdTab);
+        }
+        const activeIndex = savedWindow.tabs.findIndex((tab) => tab.active);
+        if (activeIndex > 0 && restoredTabs[activeIndex]) {
+          await browserApi.tabs.update(restoredTabs[activeIndex].id, { active: true });
+        }
+        if (savedWindow.focused) {
+          await browserApi.windows.update(createdWindow.id, { focused: true });
+        }
       }
-      const activeIndex = savedWindow.tabs.findIndex((tab) => tab.active);
-      if (activeIndex > 0 && restoredTabs[activeIndex]) {
-        await browserApi.tabs.update(restoredTabs[activeIndex].id, { active: true });
+    } catch (error) {
+      if (createdWindows.length && browserApi.windows.remove) {
+        await Promise.all(
+          createdWindows.map(async (id) => {
+            try {
+              await browserApi.windows.remove(id);
+            } catch {
+              // Keep reporting the original restore failure if rollback is unavailable.
+            }
+          }),
+        );
       }
-      if (savedWindow.focused) {
-        await browserApi.windows.update(createdWindow.id, { focused: true });
-      }
-      createdWindows.push({
-        id: createdWindow.id,
-        tabs: restoredTabs.length,
-      });
+      throw new Error(
+        `Session restore failed after creating ${createdWindows.length} window(s): ${error instanceof Error ? error.message : "browser API failure"}`,
+      );
     }
-    return createdWindows;
+    return createdWindows.map((id) => ({ id }));
   }
 
   async function appendSnapshot(snapshot, focusedWindow, browserApi) {
