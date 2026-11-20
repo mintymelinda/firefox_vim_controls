@@ -935,7 +935,6 @@ test("irreversible commands clear undo history and private undo is blocked", asy
   assert.match(privateUndo.error, /private browsing/);
 });
 
-
 test("confirmation previews stop destructive actions without clearing undo", async () => {
   clearUndoStack();
   const api = createBrowserApi();
