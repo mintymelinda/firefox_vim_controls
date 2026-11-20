@@ -1024,3 +1024,55 @@ test("creates private windows only after Firefox grants private access", async (
   assert.equal(api.calls.windowCreates.at(-1).incognito, true);
   assert.equal((await api.windows.getAll()).at(-1).incognito, true);
 });
+
+
+test("closes and moves relative to the active tab in the focused window", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const left = await handleMessage(request("close", ["left"]), api, selectors, sender);
+  assert.equal(left.ok, true);
+  assert.match(left.output[0], /No tabs matched/);
+
+  const moved = await handleMessage(
+    request("move", ["right"], ["new_window"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(moved.ok, true);
+  assert.ok(api.calls.moved.some((call) => call.ids === 2 || call.ids.includes(2)));
+});
+
+test("accepts domain shorthand for close and move selectors", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const moved = await handleMessage(
+    request("move", ["domain", "example.com"], ["new_window"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(moved.ok, true);
+  assert.ok(api.calls.moved.some((call) => call.ids === 2 || call.ids.includes(2)));
+});
+
+test("closes blank and discarded tabs through their selectors", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  await api.tabs.create({ windowId: 10, url: "about:blank", active: false });
+  const blankId = api.calls.tabCreates.at(-1).id;
+  const blank = await handleMessage(request("close", ["empty"]), api, selectors, sender);
+  assert.equal(blank.ok, true);
+  assert.ok(api.calls.removed.includes(blankId));
+
+  const windows = await api.windows.getAll();
+  windows[0].tabs.find((tab) => tab.id === 2).discarded = true;
+  const discarded = await handleMessage(
+    request("close", ["discarded"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(discarded.ok, true);
+  assert.ok(api.calls.removed.includes(2));
+});
