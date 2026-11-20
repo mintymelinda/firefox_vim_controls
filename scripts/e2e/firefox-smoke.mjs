@@ -188,8 +188,9 @@ try {
   );
 
   await sendKeys(sessionId, editable, "\uE00C");
-  await request("POST", `/session/${sessionId}/element/${trigger}/click`);
-  await sendKeys(sessionId, trigger, ":");
+  const body = await findElement(sessionId, "body");
+  assert.ok(body, "fixture body should remain available after leaving the editable control");
+  await sendKeys(sessionId, body, ":");
   assert.ok(
     await waitFor("Escape-then-colon activation", () =>
       findElement(sessionId, "#fvc-command-panel"),
