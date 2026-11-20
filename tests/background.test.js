@@ -862,6 +862,7 @@ test("undo restores tabs moved into a new window", async () => {
     (await api.windows.getAll()).find((window) => window.id === 10).tabs.map((tab) => tab.id),
     [1, 2],
   );
+  assert.equal((await api.windows.getAll()).some((window) => window.id === 20), false);
 });
 
 test("undo restores previous pinned and muted state", async () => {
