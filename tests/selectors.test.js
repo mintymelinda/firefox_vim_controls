@@ -146,7 +146,10 @@ test("selects one-based numeric and tab:N positions in the focused normal window
     [5],
   );
   assert.deepEqual(selectTabs(numericTabs, "4", { currentWindowId: 10 }), []);
-  assert.throws(() => selectTabs(numericTabs, "tab:abc", { currentWindowId: 10 }), /positive integer/);
+  assert.throws(
+    () => selectTabs(numericTabs, "tab:abc", { currentWindowId: 10 }),
+    /positive integer/,
+  );
   assert.throws(
     () => selectTabs(numericTabs, "0", { currentWindowId: 10 }),
     /one-based positive integers/,
