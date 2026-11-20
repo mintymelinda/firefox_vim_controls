@@ -1024,3 +1024,70 @@ test("creates private windows only after Firefox grants private access", async (
   assert.equal(api.calls.windowCreates.at(-1).incognito, true);
   assert.equal((await api.windows.getAll()).at(-1).incognito, true);
 });
+
+test("closes and moves relative to the active tab in the focused window", async () => {
+  const sender = { tab: { incognito: false } };
+  const leftApi = createBrowserApi();
+  const left = await handleMessage(request("close", ["left"]), leftApi, selectors, sender);
+  assert.equal(left.ok, true);
+  assert.match(left.output[0], /No tabs matched/);
+
+  const otherApi = createBrowserApi();
+  const other = await handleMessage(request("close", ["other"]), otherApi, selectors, sender);
+  assert.equal(other.ok, true);
+  assert.ok(otherApi.calls.removed.includes(2));
+
+  const rightApi = createBrowserApi();
+  const right = await handleMessage(request("close", ["right"]), rightApi, selectors, sender);
+  assert.equal(right.ok, true);
+  assert.ok(rightApi.calls.removed.includes(2));
+
+  const moveApi = createBrowserApi();
+  const moved = await handleMessage(
+    request("move", ["right"], ["new_window"]),
+    moveApi,
+    selectors,
+    sender,
+  );
+  assert.equal(moved.ok, true);
+  assert.ok(moveApi.calls.windowCreates.some((call) => call.tabId === 2));
+});
+
+test("accepts domain shorthand for close and move selectors", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const moved = await handleMessage(
+    request("move", ["domain", "example.com"], ["new_window"]),
+    api,
+    selectors,
+    sender,
+  );
+  assert.equal(moved.ok, true);
+  assert.ok(api.calls.windowCreates.some((call) => call.tabId === 2));
+
+  const closeApi = createBrowserApi();
+  const closed = await handleMessage(
+    request("close", ["domain", "example.com"]),
+    closeApi,
+    selectors,
+    sender,
+  );
+  assert.equal(closed.ok, true);
+  assert.ok(closeApi.calls.removed.includes(2));
+});
+
+test("closes blank and discarded tabs through their selectors", async () => {
+  const api = createBrowserApi();
+  const sender = { tab: { incognito: false } };
+  const blankTab = await api.tabs.create({ windowId: 10, url: "about:blank", active: false });
+  const blankId = blankTab.id;
+  const blank = await handleMessage(request("close", ["empty"]), api, selectors, sender);
+  assert.equal(blank.ok, true);
+  assert.ok(api.calls.removed.includes(blankId));
+
+  const windows = await api.windows.getAll();
+  windows[0].tabs.find((tab) => tab.id === 2).discarded = true;
+  const discarded = await handleMessage(request("close", ["discarded"]), api, selectors, sender);
+  assert.equal(discarded.ok, true);
+  assert.ok(api.calls.removed.includes(2));
+});

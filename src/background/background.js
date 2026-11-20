@@ -720,9 +720,13 @@
   function commandOptions(command) {
     const confirmed = command.args.includes("--confirm");
     const selectorArgs = command.args.filter((arg) => arg !== "--confirm");
+    const selector =
+      selectorArgs[0] === "domain" && selectorArgs.length === 2
+        ? `domain:${selectorArgs[1]}`
+        : selectorArgs.join(" ");
     return {
       confirmed,
-      selector: selectorArgs.length ? selectorArgs.join(" ") : "all",
+      selector: selector || "all",
     };
   }
 
@@ -1468,12 +1472,13 @@
         currentWindowId: focusedWindow?.id,
         windows,
       });
-      const selectedStatusTabs = command.args.length
-        ? selectors.selectTabs(statusMatched, command.args.join(" "), {
-            currentWindowId: focusedWindow?.id,
-            windows,
-          })
-        : statusMatched;
+      const selectedStatusTabs =
+        selector !== "all"
+          ? selectors.selectTabs(statusMatched, selector, {
+              currentWindowId: focusedWindow?.id,
+              windows,
+            })
+          : statusMatched;
       const lines = selectedStatusTabs.map((tab) => {
         const window = windows.find((item) => item.id === tab.windowId);
         return tabSummary(tab, window.index);
