@@ -274,7 +274,7 @@ try {
   );
 
   await runCommand(
-    ":open http://fixture:4173/second new_tab",
+    ":open http://fixture:4173/second, new_tab",
     "Opened http://fixture:4173/second in new tab",
   );
   await delay(500);
@@ -307,7 +307,7 @@ try {
   assert.ok(restoredLines.every((line) => !line.includes("[pinned]")));
 
   await runCommand(
-    ":open http://unrelated-fixture:4173/untouched new_tab",
+    ":open http://unrelated-fixture:4173/untouched, new_tab",
     "Opened http://unrelated-fixture:4173/untouched in new tab",
   );
   await delay(500);
