@@ -290,7 +290,10 @@ try {
   assert.ok(pinnedLines.every((line) => line.includes("[pinned]")));
   const undonePin = await runCommand(":undo", "Undid pin.");
   assert.match(undonePin, /Undid pin\./);
-  const restoredTabs = await runCommand(":tabs", "Firefox Vim Controls fixture — fixture:4173/second");
+  const restoredTabs = await runCommand(
+    ":tabs",
+    "Firefox Vim Controls fixture — fixture:4173/second",
+  );
   assert.doesNotMatch(
     restoredTabs,
     /\[pinned\]/,
@@ -320,7 +323,9 @@ try {
     "the unrelated-domain tab should remain in its original window",
   );
   assert.ok(
-    windowLines.some((line) => line.includes("2 tab(s)") && line.includes("Firefox Vim Controls fixture")),
+    windowLines.some(
+      (line) => line.includes("2 tab(s)") && line.includes("Firefox Vim Controls fixture"),
+    ),
     "the two selected fixture tabs should be grouped in the new window",
   );
   await runCommand(":count all", "3 tab(s) matched all.");
