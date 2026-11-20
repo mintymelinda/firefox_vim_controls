@@ -162,11 +162,33 @@
         root.VimCommandRegistry.names(),
       ),
     };
+    const updatedState = { history, aliases, preferences };
     await storage.set({
       fvcCommandHistory: history,
       fvcCommandAliases: aliases,
       fvcCommandPreferences: preferences,
     });
+    if (
+      browserApi.tabs?.query &&
+      browserApi.tabs?.sendMessage &&
+      sender.tab?.id !== undefined
+    ) {
+      const tabs = await browserApi.tabs.query({});
+      await Promise.all(
+        tabs
+          .filter((tab) => !tab.incognito && tab.id !== sender.tab.id)
+          .map(async (tab) => {
+            try {
+              await browserApi.tabs.sendMessage(tab.id, {
+                type: "VIM_STATE_UPDATED",
+                state: updatedState,
+              });
+            } catch {
+              // Tabs without the content script can be ignored.
+            }
+          }),
+      );
+    }
     return { ok: true, persisted: true };
   }
 
