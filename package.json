@@ -9,7 +9,8 @@
     "lint": "biome lint .",
     "test": "node --test",
     "build": "node scripts/build.mjs",
-    "check": "npm run format:check && npm run lint && npm test && npm run build"
+    "package": "node scripts/package.mjs",
+    "check": "npm run format:check && npm run lint && npm test && npm run build && npm run package"
   },
   "engines": {
     "node": "22.x"
