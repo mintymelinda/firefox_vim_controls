@@ -15,7 +15,7 @@ The aggregate check runs formatting, lint, all Node tests, the unpacked extensio
 
 The CI browser versions verified on 2026-11-20 were Firefox 159.0.1 Stable and Firefox 115.45.0 ESR, both with geckodriver 0.37.1 ([run #153](https://github.com/mintymelinda/firefox_vim_controls/actions/runs/44816732952)). These are point-in-time test versions, not a claim that all Firefox releases are covered.
 
-The browser suite covers prompt activation, editable-control safety, DOM-level accessibility semantics, focus behavior, bounded output, a background command round-trip, and the `about:blank` boundary. It does not automate privileged Firefox UI, full command-catalogue workflows, or real screen-reader announcements; see [compatibility](compatibility.md) and [accessibility](accessibility.md) for the remaining manual checks.
+The browser suite covers prompt activation, editable-control safety, DOM-level accessibility semantics, focus behavior, bounded output, tab creation/pinning/undo, and a cross-window move that preserves an unrelated-domain tab. Node tests exercise private-sender message handling, including state and macro storage access, and prove private tab URLs/titles are excluded from saved snapshots. These tests do not launch a real private Firefox window. Privileged Firefox UI, the full command catalogue, installed-release private-window behavior, and real screen-reader announcements remain manual checks; see [compatibility](compatibility.md) and [accessibility](accessibility.md).
 
 The distributable is written to:
 
@@ -54,7 +54,7 @@ For development, load the unpacked `dist/` directory through Firefox's `about:de
 - [ ] Version numbers are synchronized.
 - [ ] CI formatter, lint, unit tests, build, and package checks pass.
 - [ ] CI real-browser smoke tests pass on Firefox 115 ESR and current Stable.
-- [ ] Representative full command workflows and private-window isolation are manually checked on the release candidate.
+- [ ] Full command workflows and real private-window isolation are manually checked on the release candidate (automated coverage is representative and message-boundary focused).
 - [ ] Privileged internal-page boundaries are manually checked.
 - [ ] Screen-reader and keyboard accessibility checks are recorded with browser/AT versions.
 - [ ] ZIP manifest, referenced scripts, and locale validate.
