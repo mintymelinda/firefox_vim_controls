@@ -2,14 +2,15 @@
   "use strict";
 
   const LIMITS = Object.freeze({
-    sessions: 30,
-    workspaces: 20,
+    sessions: 20,
+    workspaces: 10,
     windows: 20,
     tabsPerWindow: 100,
     totalTabs: 500,
     nameLength: 40,
     urlLength: 4096,
     titleLength: 512,
+    storageBytes: 8 * 1024 * 1024,
   });
 
   function normalizeName(value) {
@@ -159,6 +160,23 @@
     return next;
   }
 
+  function estimateStorageBytes(sessions, workspaces) {
+    return (
+      JSON.stringify({
+        sessions: normalizeCollection(sessions, LIMITS.sessions),
+        workspaces: normalizeCollection(workspaces, LIMITS.workspaces),
+      }).length * 2
+    );
+  }
+
+  function assertStorageBudget(sessions, workspaces) {
+    const bytes = estimateStorageBytes(sessions, workspaces);
+    if (bytes > LIMITS.storageBytes) {
+      throw new Error("Saved sessions and workspaces would exceed the 8 MiB local storage budget.");
+    }
+    return bytes;
+  }
+
   function listRecords(collection, limit) {
     return Object.entries(normalizeCollection(collection, limit))
       .map(([name, record]) => ({
@@ -172,8 +190,10 @@
 
   const api = {
     LIMITS,
+    assertStorageBudget,
     captureSnapshot,
     deleteRecord,
+    estimateStorageBytes,
     listRecords,
     normalizeCollection,
     normalizeName,
