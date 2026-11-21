@@ -351,6 +351,7 @@ try {
   await runCommand(":move fixture, new_window", "Moved 2 tab(s) into new window", {
     promptCloses: true,
   });
+  await runCommand(":window 2", "Focused window 2");
   await runCommand(":windows", "Window ");
   const windowLines = await executeScript(
     sessionId,
