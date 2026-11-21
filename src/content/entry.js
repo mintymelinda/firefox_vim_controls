@@ -556,6 +556,12 @@
   document.addEventListener(
     "keydown",
     (event) => {
+      if (event.key === "Escape" && panel) {
+        event.preventDefault();
+        event.stopPropagation();
+        closePanel();
+        return;
+      }
       if (panel) return;
       if (
         event.key === "Escape" &&
