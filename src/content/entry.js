@@ -183,7 +183,7 @@
       }
     }
 
-    const tokenMatch = value.match(/\\S*$/);
+    const tokenMatch = value.match(/\S*$/);
     const rawToken = tokenMatch ? tokenMatch[0] : "";
     const token = rawToken.replace(/^:/, "");
     const prefix =
