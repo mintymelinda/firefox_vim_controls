@@ -451,12 +451,9 @@ test("reports prompt closure when a command focuses another tab and window", asy
 
 test("reports prompt closure when its own tab moves to another window", async () => {
   const api = createBrowserApi();
-  const result = await handleMessage(
-    request("move", ["twitch"], ["new_window"]),
-    api,
-    selectors,
-    { tab: { id: 1, windowId: 10 } },
-  );
+  const result = await handleMessage(request("move", ["twitch"], ["new_window"]), api, selectors, {
+    tab: { id: 1, windowId: 10 },
+  });
 
   assert.equal(result.closePrompt, true);
   assert.match(result.output[0], /Moved 1 tab\(s\) into new window/);
