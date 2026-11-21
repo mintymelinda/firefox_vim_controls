@@ -39,6 +39,19 @@ test("stops at confirmation previews rather than treating them as success", asyn
   assert.equal(results[0].result.requiresConfirmation, true);
 });
 
+test("stops a command chain when execution changes browser focus", async () => {
+  const order = [];
+  const results = await chain.executeChain(
+    [{ name: "focus" }, { name: "count" }],
+    async (command) => {
+      order.push(command.name);
+      return { ok: true, closePrompt: command.name === "focus" };
+    },
+  );
+  assert.deepEqual(order, ["focus"]);
+  assert.equal(results[0].result.closePrompt, true);
+});
+
 test("propagates executor exceptions without running later commands", async () => {
   const order = [];
   await assert.rejects(
