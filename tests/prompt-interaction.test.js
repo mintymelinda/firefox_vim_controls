@@ -262,6 +262,30 @@ test("prompt activation ignores editable targets and opens after Escape releases
   assert.equal(harness.document.activeElement.tagName, "INPUT");
 });
 
+test("Escape closes the prompt even when a command is present in the input", async () => {
+  const harness = await createPromptHarness();
+  const panel = await harness.open();
+  const input = panel.input;
+  input.value = ":move mail.google";
+  let prevented = false;
+  let propagationStopped = false;
+
+  await harness.document.dispatch("keydown", {
+    key: "Escape",
+    target: input,
+    preventDefault() {
+      prevented = true;
+    },
+    stopPropagation() {
+      propagationStopped = true;
+    },
+  });
+
+  assert.equal(prevented, true);
+  assert.equal(propagationStopped, true);
+  assert.equal(harness.document.getElementById("fvc-command-panel"), null);
+});
+
 test("prompt history navigation restores prior commands and returns to an empty draft", async () => {
   const harness = await createPromptHarness({ history: ["tabs", "help", "windows"] });
   await harness.open();
