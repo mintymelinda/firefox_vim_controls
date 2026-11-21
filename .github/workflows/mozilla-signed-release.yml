@@ -2,6 +2,11 @@ name: Mozilla-signed release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Extension version to sign (for example, 0.1.1)"
+        required: true
+        type: string
   push:
     tags:
       - "v*"
@@ -37,13 +42,43 @@ jobs:
             exit 1
           fi
 
-      - name: Validate version and tag
+      - name: Apply requested release version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${REQUESTED_VERSION}"
+          fi
+          if [[ ! "${VERSION}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Provide a valid extension version (for example, 0.1.1)."
+            exit 1
+          fi
+          VERSION="${VERSION}" node <<'NODE'
+          const fs = require('node:fs');
+          const version = process.env.VERSION;
+          for (const path of ['manifest.json', 'package.json', 'package-lock.json']) {
+            const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+            data.version = version;
+            if (path === 'package-lock.json') {
+              data.packages[''].version = version;
+            }
+            fs.writeFileSync(path, `${JSON.stringify(data, null, 2)}\\n`);
+          }
+          NODE
+          echo "RELEASE_VERSION=${VERSION}" >> "${GITHUB_ENV}"
+
+      - name: Validate synchronized version and tag
         shell: bash
         run: |
           VERSION="$(node -p "require('./manifest.json').version")"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if [[ "${VERSION}" != "${PACKAGE_VERSION}" ]]; then
-            echo "::error::manifest.json and package.json versions differ."
+          LOCK_VERSION="$(node -p "require('./package-lock.json').version")"
+          ROOT_LOCK_VERSION="$(node -p "require('./package-lock.json').packages[''].version")"
+          if [[ "${VERSION}" != "${PACKAGE_VERSION}" || "${VERSION}" != "${LOCK_VERSION}" || "${VERSION}" != "${ROOT_LOCK_VERSION}" ]]; then
+            echo "::error::manifest.json, package.json, and package-lock.json versions differ."
             exit 1
           fi
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "v${VERSION}" ]]; then
@@ -110,7 +145,7 @@ jobs:
       - name: Upload unsigned and Mozilla-signed release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firefox-vim-controls-${{ github.ref_name }}-mozilla-signed
+          name: firefox-vim-controls-${{ env.RELEASE_VERSION }}-mozilla-signed
           path: |
             artifacts/firefox-vim-controls-*.zip
             artifacts/signed/*.xpi
