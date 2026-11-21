@@ -1,10 +1,4 @@
 ((root) => {
-  const HOST_ALIASES = {
-    twitch: ["twitch.tv"],
-    youtube: ["youtube.com", "youtu.be"],
-    audible: ["audible.com"],
-  };
-
   function hostnameOf(tab) {
     if (typeof tab?.url !== "string") return "";
     try {
@@ -15,6 +9,24 @@
     } catch {
       return "";
     }
+  }
+
+  function hostnamePrefixMatches(hostname, selector) {
+    const hostLabels = String(hostname || "")
+      .toLowerCase()
+      .replace(/\.$/, "")
+      .split(".")
+      .filter(Boolean);
+    const selectorLabels = String(selector || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\.$/, "")
+      .split(".")
+      .filter(Boolean);
+    if (!hostLabels.length || !selectorLabels.length || selectorLabels.length > hostLabels.length) {
+      return false;
+    }
+    return selectorLabels.every((label, index) => hostLabels[index].startsWith(label));
   }
 
   function hostMatches(hostname, domain) {
@@ -70,16 +82,6 @@
       const ids = duplicateTabIds(tabs);
       return tabs.filter((tab) => ids.has(tab.id));
     }
-    if (value.startsWith("domain:")) {
-      const domain = value.slice("domain:".length).trim();
-      if (!domain) throw new Error("A domain selector requires a hostname");
-      return tabs.filter((tab) => hostMatches(hostnameOf(tab), domain));
-    }
-    if (Object.hasOwn(HOST_ALIASES, value)) {
-      return tabs.filter((tab) =>
-        HOST_ALIASES[value].some((domain) => hostMatches(hostnameOf(tab), domain)),
-      );
-    }
     if (value.startsWith("window:")) {
       const index = Number(value.slice("window:".length));
       if (!Number.isSafeInteger(index) || index < 1) {
@@ -89,10 +91,17 @@
       if (!window) throw new Error(`No normal browser window at index ${index}`);
       return tabs.filter((tab) => tab.windowId === window.id);
     }
-    throw new Error(`Unknown tab selector: ${selector}`);
+    return tabs.filter((tab) => hostnamePrefixMatches(hostnameOf(tab), value));
   }
 
-  const api = { canonicalUrl, duplicateTabIds, hostMatches, hostnameOf, selectTabs };
+  const api = {
+    canonicalUrl,
+    duplicateTabIds,
+    hostMatches,
+    hostnameOf,
+    hostnamePrefixMatches,
+    selectTabs,
+  };
   root.VimTabSelectors = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(globalThis);
