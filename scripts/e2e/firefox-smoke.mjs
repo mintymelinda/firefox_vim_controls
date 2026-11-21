@@ -248,7 +248,7 @@ try {
       }
       return expectedOutput;
     }
-    const output = await waitFor(`command response for \${command}`, async () => {
+    const output = await waitFor(`command response for ${command}`, async () => {
       const text = await executeScript(
         sessionId,
         "return document.querySelector('#fvc-command-panel .fvc-output')?.lastElementChild?.textContent || ''",
@@ -344,6 +344,7 @@ try {
   await runCommand(
     ":open http://unrelated-fixture:4173/untouched, new_tab",
     "Opened http://unrelated-fixture:4173/untouched in new tab",
+    { promptCloses: true },
   );
   await delay(500);
   await runCommand(":move fixture, new_window", "Moved 2 tab(s) into new window", {
