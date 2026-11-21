@@ -15,6 +15,7 @@ const tabs = [
   { id: 4, url: "https://youtube.com/watch?v=abc#comments", windowId: 11 },
   { id: 5, url: "https://twitch.tv.evil.example/path", windowId: 11 },
   { id: 6, url: "https://www.audible.com/library", windowId: 12, audible: true },
+  { id: 7, url: "https://mail.google.com/mail/u/0/#inbox", windowId: 13 },
 ];
 
 test("matches exact hosts and subdomains without suffix spoofing", () => {
@@ -56,6 +57,10 @@ test("supports domain and explicit window selectors", () => {
   assert.deepEqual(
     selectTabs(tabs, "domain:twitch.tv").map((tab) => tab.id),
     [1, 2],
+  );
+  assert.deepEqual(
+    selectTabs(tabs, "domain: mail.google.com").map((tab) => tab.id),
+    [7],
   );
   assert.deepEqual(
     selectTabs(tabs, "window:2", {

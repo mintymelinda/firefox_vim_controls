@@ -71,7 +71,7 @@
       return tabs.filter((tab) => ids.has(tab.id));
     }
     if (value.startsWith("domain:")) {
-      const domain = value.slice("domain:".length);
+      const domain = value.slice("domain:".length).trim();
       if (!domain) throw new Error("A domain selector requires a hostname");
       return tabs.filter((tab) => hostMatches(hostnameOf(tab), domain));
     }
