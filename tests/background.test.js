@@ -242,6 +242,29 @@ test("supports read-only inspection and excludes private windows", async () => {
   assert.match(duplicates.output[0], /Duplicate group/);
 });
 
+test("hostname suggestions include only tabs from the requesting privacy context", async () => {
+  const api = createBrowserApi();
+  const normal = await handleMessage({ type: "VIM_HOSTNAME_SUGGESTIONS" }, api, selectors, {
+    tab: { incognito: false },
+  });
+  const privateResult = await handleMessage({ type: "VIM_HOSTNAME_SUGGESTIONS" }, api, selectors, {
+    tab: { incognito: true },
+  });
+
+  assert.deepEqual(normal, {
+    ok: true,
+    hostnames: ["example.com", "twitch.tv", "youtube.com"],
+  });
+  assert.deepEqual(privateResult, {
+    ok: true,
+    hostnames: ["private.example"],
+  });
+  assert.deepEqual(
+    await handleMessage({ type: "VIM_HOSTNAME_SUGGESTIONS", extra: true }, api, selectors),
+    { ok: false, error: "Unexpected hostname suggestion request properties" },
+  );
+});
+
 test("protects the final tab in every window during close operations", () => {
   const windows = makeWindows().filter((window) => !window.incognito);
   const tabs = windows.flatMap((window) =>
@@ -257,7 +280,7 @@ test("protects the final tab in every window during close operations", () => {
 
 test("closes one selected tab immediately but previews multi-tab closes", async () => {
   const api = createBrowserApi();
-  const single = await handleMessage(request("close", ["domain:example.com"]), api, selectors);
+  const single = await handleMessage(request("close", ["example"]), api, selectors);
   assert.deepEqual(api.calls.removed, [2]);
   assert.match(single.output[0], /1 of 1 tab/);
 
