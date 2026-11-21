@@ -1570,7 +1570,23 @@
       return { ok: false, error: "Browser tab APIs are unavailable." };
     }
     try {
-      return await executeCommand(command, browserApi, selectors);
+      const response = await executeCommand(command, browserApi, selectors);
+      if (!response.ok || !sender.tab?.id || !sender.tab?.windowId) return response;
+
+      try {
+        const [tabs, windows] = await Promise.all([
+          browserApi.tabs.query({}),
+          browserApi.windows.getAll(),
+        ]);
+        const senderTab = tabs.find((tab) => tab.id === sender.tab.id);
+        const senderWindow = windows.find((window) => window.id === sender.tab.windowId);
+        if (!senderTab?.active || !senderWindow?.focused) {
+          return { ...response, closePrompt: true };
+        }
+      } catch {
+        // A completed command should not fail because prompt focus could not be inspected.
+      }
+      return response;
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : "Command failed." };
     }
