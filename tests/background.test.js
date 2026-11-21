@@ -280,7 +280,7 @@ test("protects the final tab in every window during close operations", () => {
 
 test("closes one selected tab immediately but previews multi-tab closes", async () => {
   const api = createBrowserApi();
-  const single = await handleMessage(request("close", ["domain:example.com"]), api, selectors);
+  const single = await handleMessage(request("close", ["example"]), api, selectors);
   assert.deepEqual(api.calls.removed, [2]);
   assert.match(single.output[0], /1 of 1 tab/);
 
