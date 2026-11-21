@@ -372,6 +372,37 @@ test("validates move destinations and preserves read-only inspection commands", 
   assert.deepEqual(result.output, ["2 tab(s) matched youtube."]);
 });
 
+test("focus activates the most recently used matching tab and its window", async () => {
+  const api = createBrowserApi();
+  const getAll = api.windows.getAll;
+  api.windows.getAll = async (options) => {
+    const windows = await getAll(options);
+    windows[0].tabs[0].lastAccessed = 100;
+    windows[1].tabs[0].lastAccessed = 300;
+    windows[1].tabs[1].lastAccessed = 200;
+    return windows;
+  };
+
+  const result = await handleMessage(request("focus", ["youtube"]), api, selectors);
+
+  assert.deepEqual(api.calls.windowUpdates, [{ id: 11, properties: { focused: true } }]);
+  assert.deepEqual(api.calls.updated, [{ id: 3, properties: { active: true } }]);
+  assert.match(result.output[0], /Focused tab #3 in window 2: Video/);
+});
+
+test("focus reports when no tabs match and requires a selector", async () => {
+  const api = createBrowserApi();
+  const missing = await handleMessage(request("focus", ["does-not-exist"]), api, selectors);
+  assert.deepEqual(missing, { ok: true, output: ['No tabs matched "does-not-exist".'] });
+  const missingSelector = await handleMessage(request("focus"), api, selectors);
+  assert.deepEqual(missingSelector, {
+    ok: false,
+    error: "Focus syntax: :focus hostname-selector.",
+  });
+  assert.deepEqual(api.calls.updated, []);
+  assert.deepEqual(api.calls.windowUpdates, []);
+});
+
 test("lists, focuses, creates, and changes normal window states", async () => {
   const api = createBrowserApi();
   const windows = await handleMessage(request("windows"), api, selectors);

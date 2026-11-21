@@ -45,6 +45,7 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:tabs [selector]` — list matching tabs.
 - `:count [selector]` — count matching tabs.
 - `:current` — show the active tab in the focused normal window.
+- `:focus <hostname-selector>` — activate the most recently used matching tab and focus its window. For example, `:focus mail.google`.
 - `:domains [selector]` — list hostnames represented by matching tabs.
 - `:duplicates` — list tabs sharing the same URL (ignoring URL fragments and leading `www.`).
 - `:close [selector] [--confirm]` — close matching tabs; closing multiple tabs requires a preview and explicit confirmation.

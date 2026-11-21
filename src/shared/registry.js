@@ -8,6 +8,11 @@
     { name: "tabs", status: "implemented", summary: "List matching tabs" },
     { name: "count", status: "implemented", summary: "Count matching tabs" },
     { name: "current", status: "implemented", summary: "Show the active tab" },
+    {
+      name: "focus",
+      status: "implemented",
+      summary: "Activate the most recently used matching tab",
+    },
     { name: "domains", status: "implemented", summary: "List domains represented by open tabs" },
     { name: "duplicates", status: "implemented", summary: "Find duplicate tabs" },
     { name: "close", status: "implemented", summary: "Close matching tabs" },

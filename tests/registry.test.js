@@ -5,6 +5,7 @@ const registry = require("../src/shared/registry.js");
 test("registry distinguishes implemented and planned commands", () => {
   assert.equal(registry.get("help").status, "implemented");
   assert.equal(registry.get("close").status, "implemented");
+  assert.equal(registry.get("focus").status, "implemented");
   assert.equal(registry.get("windows").status, "implemented");
   assert.equal(registry.get("merge").status, "implemented");
   assert.equal(registry.get("sort").status, "implemented");
