@@ -1,7 +1,7 @@
 {
   "extensionName": {
-    "message": "Firefox Vim Controls",
-    "description": "Name of the Firefox extension."
+    "message": "Vim Controls",
+    "description": "Name of the browser extension."
   },
   "extensionDescription": {
     "message": "Vim-inspired command interface for managing Firefox tabs and windows.",
