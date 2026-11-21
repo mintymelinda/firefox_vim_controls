@@ -320,7 +320,7 @@ try {
     "Opened http://unrelated-fixture:4173/untouched in new tab",
   );
   await delay(500);
-  await runCommand(":move domain:fixture, new_window", "Moved 2 tab(s) into new window");
+  await runCommand(":move fixture, new_window", "Moved 2 tab(s) into new window");
   await runCommand(":windows", "Window ");
   const windowLines = await executeScript(
     sessionId,
@@ -338,7 +338,7 @@ try {
     "the two selected fixture tabs should be grouped in the new window",
   );
   await runCommand(":count all", "3 tab(s) matched all.");
-  await runCommand(":count domain:fixture", "2 tab(s) matched domain:fixture");
+  await runCommand(":count fixture", "2 tab(s) matched fixture");
 
   await sendKeys(sessionId, commandInput, "\uE00C");
   await waitFor(
