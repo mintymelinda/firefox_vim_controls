@@ -246,6 +246,7 @@ try {
           handle: newlyOpenedHandles.at(-1),
         });
       }
+      await executeScript(sessionId, "window.focus()");
       return expectedOutput;
     }
     const output = await waitFor(`command response for ${command}`, async () => {
