@@ -179,6 +179,9 @@ async function createPromptHarness({ history = ["tabs", "help"], privateContext 
           return { ok: true, state: { history, aliases: {}, preferences: {} } };
         }
         if (message.type === "VIM_STATE_SET") return { ok: true };
+        if (message.type === "VIM_HOSTNAME_SUGGESTIONS") {
+          return { ok: true, hostnames: ["mail.apple.com", "mail.google.com", "synth.bigstorageparty.synology.me"] };
+        }
         if (message.type === "VIM_COMMAND_REQUEST") {
           return { ok: true, output: ["background accepted command"] };
         }
@@ -289,6 +292,27 @@ test("Tab completion is interactive, while Shift+Tab does not replace the comman
   input.value = ":wi";
   await harness.key("Tab", { shiftKey: true });
   assert.equal(input.value, ":wi");
+});
+
+test("Tab completion suggests hostnames from open tabs for selector arguments", async () => {
+  const harness = await createPromptHarness();
+  await harness.open();
+  const input = harness.document.getElementById("fvc-command-panel").input;
+  input.value = ":move mail";
+  await harness.key("Tab");
+  assert.equal(input.value, ":move mail");
+  assert.match(
+    harness.document.getElementById("fvc-command-panel").output.children[0].textContent,
+    /mail\\.apple\\.com.*mail\\.google\\.com/,
+  );
+  await harness.key("Tab");
+  assert.equal(input.value, ":move mail.");
+  input.value = ":move mail.g";
+  await harness.key("Tab");
+  assert.equal(input.value, ":move mail.google.com ");
+  input.value = ":move synth";
+  await harness.key("Tab");
+  assert.equal(input.value, ":move synth.bigstorageparty.synology.me ");
 });
 
 test("Enter sends a structured command request and displays the background response", async () => {
