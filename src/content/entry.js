@@ -74,8 +74,8 @@
     }
   }
 
-  function closePanel() {
-    const restoreTarget = previousFocus;
+  function closePanel({ restoreFocus = true } = {}) {
+    const restoreTarget = restoreFocus ? previousFocus : null;
     if (focusTrapHandler) {
       document.removeEventListener("focusin", focusTrapHandler, true);
       focusTrapHandler = null;
@@ -496,6 +496,10 @@
           return response || { ok: false };
         }
         for (const line of response.output || []) appendOutput(line);
+        if (response.closePrompt) {
+          closePanel({ restoreFocus: false });
+          return { ...response, closePrompt: true };
+        }
         if (response.requiresConfirmation) {
           appendOutput(
             "Command chain stopped here. Confirm this action separately with --confirm.",
@@ -504,7 +508,7 @@
         return response;
       });
 
-      input.value = "";
+      if (input) input.value = "";
     } catch (error) {
       appendOutput(error.message, "error");
     }
