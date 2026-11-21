@@ -420,6 +420,45 @@ test("focus activates the most recently used matching tab and its window", async
   assert.match(result.output[0], /Focused tab #3 in window 2: Video/);
 });
 
+test("reports prompt closure when a command focuses another tab and window", async () => {
+  const api = createBrowserApi();
+  const originalWindowUpdate = api.windows.update;
+  const originalTabUpdate = api.tabs.update;
+  api.windows.update = async (id, properties) => {
+    const result = await originalWindowUpdate(id, properties);
+    if (properties.focused) {
+      for (const window of await api.windows.getAll()) window.focused = window.id === id;
+    }
+    return result;
+  };
+  api.tabs.update = async (id, properties) => {
+    const result = await originalTabUpdate(id, properties);
+    if (properties.active) {
+      for (const window of await api.windows.getAll()) {
+        for (const tab of window.tabs) tab.active = tab.id === id;
+      }
+    }
+    return result;
+  };
+
+  const result = await handleMessage(request("focus", ["youtube"]), api, selectors, {
+    tab: { id: 1, windowId: 10 },
+  });
+
+  assert.equal(result.closePrompt, true);
+  assert.match(result.output[0], /Focused tab #3 in window 2/);
+});
+
+test("reports prompt closure when its own tab moves to another window", async () => {
+  const api = createBrowserApi();
+  const result = await handleMessage(request("move", ["twitch"], ["new_window"]), api, selectors, {
+    tab: { id: 1, windowId: 10 },
+  });
+
+  assert.equal(result.closePrompt, true);
+  assert.match(result.output[0], /Moved 1 tab\(s\) into new window/);
+});
+
 test("focus reports when no tabs match and requires a selector", async () => {
   const api = createBrowserApi();
   const missing = await handleMessage(request("focus", ["does-not-exist"]), api, selectors);

@@ -164,7 +164,11 @@ class FakeDocument {
   }
 }
 
-async function createPromptHarness({ history = ["tabs", "help"], privateContext = false } = {}) {
+async function createPromptHarness({
+  history = ["tabs", "help"],
+  privateContext = false,
+  commandResponse = { ok: true, output: ["background accepted command"] },
+} = {}) {
   const document = new FakeDocument();
   const messages = [];
   const runtimeListeners = [];
@@ -186,7 +190,7 @@ async function createPromptHarness({ history = ["tabs", "help"], privateContext 
           };
         }
         if (message.type === "VIM_COMMAND_REQUEST") {
-          return { ok: true, output: ["background accepted command"] };
+          return commandResponse;
         }
         return { ok: false, error: "Unexpected message" };
       },
@@ -365,6 +369,22 @@ test("Enter sends a structured command request and displays the background respo
       .getElementById("fvc-command-panel")
       .output.children.some((line) => line.textContent === "background accepted command"),
   );
+});
+
+test("closes the old prompt without restoring focus after a command changes tabs", async () => {
+  const harness = await createPromptHarness({
+    commandResponse: {
+      ok: true,
+      output: ["Focused another tab."],
+      closePrompt: true,
+    },
+  });
+  const panel = await harness.open();
+  panel.input.value = ":focus youtube";
+
+  await harness.key("Enter");
+
+  assert.equal(harness.document.getElementById("fvc-command-panel"), null);
 });
 
 test("private prompt sessions do not read or write persistent command state", async () => {

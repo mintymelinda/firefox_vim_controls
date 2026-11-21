@@ -220,9 +220,45 @@ try {
 
   const commandInput = await findElement(sessionId, "#fvc-command-panel input");
 
-  async function runCommand(command, expectedOutput) {
-    await sendKeys(sessionId, commandInput, command);
-    await sendKeys(sessionId, commandInput, "\uE007");
+  async function runCommand(
+    command,
+    expectedOutput,
+    { promptCloses = false, focusUrlPrefix = null } = {},
+  ) {
+    if (!(await findElement(sessionId, "#fvc-command-panel"))) {
+      const activeBody = await findElement(sessionId, "body");
+      await sendKeys(sessionId, activeBody, ":");
+      await waitFor("command prompt after browser focus change", () =>
+        findElement(sessionId, "#fvc-command-panel"),
+      );
+    }
+    const handlesBeforeCommand = await request("GET", `/session/${sessionId}/window/handles`);
+    const currentInput = await findElement(sessionId, "#fvc-command-panel input");
+    await sendKeys(sessionId, currentInput, command);
+    await sendKeys(sessionId, currentInput, "\uE007");
+    if (promptCloses) {
+      await waitFor(
+        `old command prompt closes after ${command}`,
+        async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
+      );
+      const handlesAfterCommand = await request("GET", `/session/${sessionId}/window/handles`);
+      const newlyOpenedHandles = handlesAfterCommand.filter(
+        (handle) => !handlesBeforeCommand.includes(handle),
+      );
+      if (newlyOpenedHandles.length) {
+        await request("POST", `/session/${sessionId}/window`, {
+          handle: newlyOpenedHandles.at(-1),
+        });
+      } else if (focusUrlPrefix) {
+        for (const handle of handlesAfterCommand) {
+          await request("POST", `/session/${sessionId}/window`, { handle });
+          const url = await executeScript(sessionId, "return location.href");
+          if (url.startsWith(focusUrlPrefix)) break;
+        }
+      }
+      await executeScript(sessionId, "window.focus()");
+      return expectedOutput;
+    }
     const output = await waitFor(`command response for ${command}`, async () => {
       const text = await executeScript(
         sessionId,
@@ -230,7 +266,7 @@ try {
       );
       return text.includes(expectedOutput) ? text : null;
     });
-    await waitFor(`command input reset after ${command}`, async () =>
+    await waitFor(`command input reset after \${command}`, async () =>
       executeScript(
         sessionId,
         "return document.querySelector('#fvc-command-panel input').value === ''",
@@ -285,6 +321,7 @@ try {
   await runCommand(
     ":open http://fixture:4173/second, new_tab",
     "Opened http://fixture:4173/second in new tab",
+    { promptCloses: true },
   );
   await delay(500);
   await runCommand(":count all", "2 tab(s) matched all.");
@@ -318,9 +355,14 @@ try {
   await runCommand(
     ":open http://unrelated-fixture:4173/untouched, new_tab",
     "Opened http://unrelated-fixture:4173/untouched in new tab",
+    { promptCloses: true },
   );
   await delay(500);
-  await runCommand(":move fixture, new_window", "Moved 2 tab(s) into new window");
+  await runCommand(":move fixture, new_window", "Moved 2 tab(s) into new window", {
+    promptCloses: true,
+    focusUrlPrefix: "http://fixture:4173/",
+  });
+  await runCommand(":window 2", "Focused window 2");
   await runCommand(":windows", "Window ");
   const windowLines = await executeScript(
     sessionId,
@@ -340,8 +382,9 @@ try {
   await runCommand(":count all", "3 tab(s) matched all.");
   await runCommand(":count fixture", "2 tab(s) matched fixture");
   const handlesBeforeClose = await request("GET", `/session/${sessionId}/window/handles`);
-  await sendKeys(sessionId, commandInput, ":close fixture --confirm");
-  await sendKeys(sessionId, commandInput, "\uE007");
+  const closeInput = await findElement(sessionId, "#fvc-command-panel input");
+  await sendKeys(sessionId, closeInput, ":close fixture --confirm");
+  await sendKeys(sessionId, closeInput, "\uE007");
   const handlesAfterClose = await waitFor("fixture window closure", async () => {
     const handles = await request("GET", `/session/${sessionId}/window/handles`);
     return handles.length < handlesBeforeClose.length ? handles : null;
