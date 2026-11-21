@@ -52,7 +52,7 @@ jobs:
           else
             VERSION="${REQUESTED_VERSION}"
           fi
-          if [[ ! "${VERSION}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::Provide a valid extension version (for example, 0.1.1)."
             exit 1
           fi
@@ -65,7 +65,7 @@ jobs:
             if (path === 'package-lock.json') {
               data.packages[''].version = version;
             }
-            fs.writeFileSync(path, `${JSON.stringify(data, null, 2)}\\n`);
+            fs.writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
           }
           NODE
           echo "RELEASE_VERSION=${VERSION}" >> "${GITHUB_ENV}"
