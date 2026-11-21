@@ -449,6 +449,19 @@ test("reports prompt closure when a command focuses another tab and window", asy
   assert.match(result.output[0], /Focused tab #3 in window 2/);
 });
 
+test("reports prompt closure when its own tab moves to another window", async () => {
+  const api = createBrowserApi();
+  const result = await handleMessage(
+    request("move", ["twitch"], ["new_window"]),
+    api,
+    selectors,
+    { tab: { id: 1, windowId: 10 } },
+  );
+
+  assert.equal(result.closePrompt, true);
+  assert.match(result.output[0], /Moved 1 tab\(s\) into new window/);
+});
+
 test("focus reports when no tabs match and requires a selector", async () => {
   const api = createBrowserApi();
   const missing = await handleMessage(request("focus", ["does-not-exist"]), api, selectors);
