@@ -1444,12 +1444,37 @@
     );
   }
 
+  async function handleHostnameSuggestions(browserApi, sender = {}) {
+    if (typeof browserApi?.tabs?.query !== "function") {
+      return { ok: false, error: "Browser tab APIs are unavailable." };
+    }
+    const privateContext = Boolean(sender.tab?.incognito);
+    const tabs = await browserApi.tabs.query({});
+    const hostnames = new Set();
+    for (const tab of tabs) {
+      if (Boolean(tab.incognito) !== privateContext) continue;
+      const hostname = root.VimTabSelectors?.hostnameOf(tab);
+      if (hostname) hostnames.add(hostname);
+    }
+    return { ok: true, hostnames: [...hostnames].sort() };
+  }
+
   async function handleMessage(
     message,
     browserApi = root.browser,
     selectors = root.VimTabSelectors,
     sender = {},
   ) {
+    if (message?.type === "VIM_HOSTNAME_SUGGESTIONS") {
+      if (Object.keys(message).some((key) => key !== "type")) {
+        return { ok: false, error: "Unexpected hostname suggestion request properties" };
+      }
+      try {
+        return await handleHostnameSuggestions(browserApi, sender);
+      } catch {
+        return { ok: false, error: "Could not read open tab hostnames." };
+      }
+    }
     if (["VIM_MACRO_GET", "VIM_MACRO_SET", "VIM_MACRO_DELETE"].includes(message?.type)) {
       try {
         return await handleMacroMessage(message, browserApi, sender);
@@ -1515,6 +1540,7 @@
     handleMessage,
     handleStateMessage,
     handleMacroMessage,
+    handleHostnameSuggestions,
     validateMacroMessage,
     clearUndoStack,
     undoLastCommand,
