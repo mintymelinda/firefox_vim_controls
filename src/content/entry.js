@@ -143,9 +143,47 @@
     input.focus();
   }
 
-  function completeInput() {
+  async function completeInput() {
     const value = input.value;
-    const tokenMatch = value.match(/\S*$/);
+    const selectorMatch = value.match(
+      /(?<command>tabs|count|close|move|reload|mute|unmute|pin|unpin|discard|split|reverse|shuffle|back|forward|refresh)\\s+(?<selector>[^,\\s]*)(?<suffix>,.*)?$/i,
+    );
+    if (selectorMatch?.groups.selector) {
+      try {
+        const response = await browser.runtime.sendMessage({ type: "VIM_HOSTNAME_SUGGESTIONS" });
+        const selector = selectorMatch.groups.selector.toLowerCase();
+        const matches = response?.ok
+          ? response.hostnames.filter((hostname) => hostname.startsWith(selector))
+          : [];
+        if (matches.length) {
+          const selectorOffset =
+            selectorMatch.index + selectorMatch[0].indexOf(selectorMatch.groups.selector);
+          const prefix = value.slice(0, selectorOffset);
+          if (matches.length === 1) {
+            input.value = `${prefix}${matches[0]}${selectorMatch.groups.suffix || ""} `;
+          } else if (lastCompletion !== value) {
+            lastCompletion = value;
+            appendOutput(matches.join("  "));
+          } else {
+            const common = matches.reduce((prefixValue, item) => {
+              let length = 0;
+              while (length < prefixValue.length && prefixValue[length] === item[length]) {
+                length += 1;
+              }
+              return prefixValue.slice(0, length);
+            });
+            if (common.length > selector.length) {
+              input.value = `${prefix}${common}${selectorMatch.groups.suffix || ""}`;
+            }
+          }
+          return;
+        }
+      } catch {
+        // Keep ordinary command completion available when tab suggestions cannot be read.
+      }
+    }
+
+    const tokenMatch = value.match(/\\S*$/);
     const rawToken = tokenMatch ? tokenMatch[0] : "";
     const token = rawToken.replace(/^:/, "");
     const prefix =
