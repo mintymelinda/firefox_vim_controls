@@ -441,12 +441,9 @@ test("reports prompt closure when a command focuses another tab and window", asy
     return result;
   };
 
-  const result = await handleMessage(
-    request("focus", ["youtube"]),
-    api,
-    selectors,
-    { tab: { id: 1, windowId: 10 } },
-  );
+  const result = await handleMessage(request("focus", ["youtube"]), api, selectors, {
+    tab: { id: 1, windowId: 10 },
+  });
 
   assert.equal(result.closePrompt, true);
   assert.match(result.output[0], /Focused tab #3 in window 2/);
