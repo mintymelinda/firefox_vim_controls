@@ -232,8 +232,9 @@ try {
     await sendKeys(sessionId, currentInput, command);
     await sendKeys(sessionId, currentInput, "\uE007");
     if (promptCloses) {
-      await waitFor(`old command prompt closes after \${command}`, async () =>
-        (await findElement(sessionId, "#fvc-command-panel")) === null,
+      await waitFor(
+        `old command prompt closes after ${command}`,
+        async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
       );
       return expectedOutput;
     }
