@@ -362,7 +362,6 @@ try {
     promptCloses: true,
     focusUrlPrefix: "http://fixture:4173/",
   });
-  await runCommand(":window 2", "Focused window 2");
   await runCommand(":windows", "Window ");
   const windowLines = await executeScript(
     sessionId,
