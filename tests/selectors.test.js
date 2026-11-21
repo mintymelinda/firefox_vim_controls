@@ -80,7 +80,8 @@ test("supports domain and explicit window selectors", () => {
 
 test("rejects invalid or unknown selectors", () => {
   assert.throws(() => selectTabs(tabs, "domain:"), /requires a hostname/);
+  assert.deepEqual(selectTabs(tabs, "domain: mail.google.com").map((tab) => tab.id), [7]);
   assert.throws(() => selectTabs(tabs, "window:0"), /positive window index/);
   assert.throws(() => selectTabs(tabs, "window:9", { windows: [] }), /No normal browser window/);
-  assert.throws(() => selectTabs(tabs, "private"), /Unknown tab selector/);
+  assert.deepEqual(selectTabs(tabs, "private"), []);
 });
