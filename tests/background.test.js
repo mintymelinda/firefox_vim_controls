@@ -332,7 +332,10 @@ test("closes the whole window when its final tab is selected", async () => {
   });
   assert.deepEqual(api.calls.removed, []);
   assert.deepEqual(api.calls.windowRemoves, [10]);
-  assert.equal(windows.some((window) => window.id === 10), false);
+  assert.equal(
+    windows.some((window) => window.id === 10),
+    false,
+  );
 });
 
 test("closes a multi-tab window instead of removing its tabs individually", async () => {
