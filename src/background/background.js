@@ -3,6 +3,7 @@
     "tabs",
     "count",
     "current",
+    "focus",
     "domains",
     "duplicates",
     "close",
@@ -45,6 +46,7 @@
     "home",
     "new_window",
     "window",
+    "focus",
     "fullscreen",
     "minimize",
     "maximize",
@@ -982,6 +984,28 @@
     selectors,
   ) {
     const name = command.name;
+    if (name === "focus") {
+      if (!selected.length) return { ok: true, output: [`No tabs matched "${selector}".`] };
+      const target = [...selected].sort((left, right) => {
+        const recentDifference = (right.lastAccessed || 0) - (left.lastAccessed || 0);
+        if (recentDifference) return recentDifference;
+        const leftFocused = left.windowId === focusedWindow?.id;
+        const rightFocused = right.windowId === focusedWindow?.id;
+        if (leftFocused !== rightFocused) return leftFocused ? -1 : 1;
+        return (left.index ?? 0) - (right.index ?? 0);
+      })[0];
+      const targetWindow = windows.find((window) => window.id === target.windowId);
+      if (!targetWindow) return { ok: false, error: "The selected tab's window is no longer available." };
+      if (targetWindow.id !== focusedWindow?.id) {
+        await browserApi.windows.update(targetWindow.id, { focused: true });
+      }
+      if (!target.active) await browserApi.tabs.update(target.id, { active: true });
+      const label = target.title || selectors.hostnameOf(target) || target.url || "Untitled tab";
+      return {
+        ok: true,
+        output: [`Focused tab #${target.id} in window ${targetWindow.index}: ${String(label).replace(/\\s+/g, " ").trim()}`],
+      };
+    }
     if (name === "close") {
       const { removable, protectedCount } = removableTabs(selected, windows);
       if (!removable.length) {
@@ -1376,6 +1400,10 @@
         : command.name === "split"
           ? command.args.join(" ") || "all"
           : defaultSelector;
+
+    if (command.name === "focus" && !command.args.length) {
+      return { ok: false, error: "Focus syntax: :focus hostname-selector." };
+    }
 
     if (command.name === "current") {
       const current = focusedWindow?.tabs.find((tab) => tab.active);
