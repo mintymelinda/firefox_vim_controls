@@ -303,7 +303,7 @@ test("Tab completion suggests hostnames from open tabs for selector arguments", 
   assert.equal(input.value, ":move mail");
   assert.match(
     harness.document.getElementById("fvc-command-panel").output.children[0].textContent,
-    /mail\\.apple\\.com.*mail\\.google\\.com/,
+    /mail\.apple\.com.*mail\.google\.com/,
   );
   await harness.key("Tab");
   assert.equal(input.value, ":move mail.");
