@@ -228,6 +228,7 @@ try {
         findElement(sessionId, "#fvc-command-panel"),
       );
     }
+    const handlesBeforeCommand = await request("GET", `/session/${sessionId}/window/handles`);
     const currentInput = await findElement(sessionId, "#fvc-command-panel input");
     await sendKeys(sessionId, currentInput, command);
     await sendKeys(sessionId, currentInput, "\uE007");
@@ -236,6 +237,15 @@ try {
         `old command prompt closes after ${command}`,
         async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
       );
+      const handlesAfterCommand = await request("GET", `/session/${sessionId}/window/handles`);
+      const newlyOpenedHandles = handlesAfterCommand.filter(
+        (handle) => !handlesBeforeCommand.includes(handle),
+      );
+      if (newlyOpenedHandles.length) {
+        await request("POST", `/session/${sessionId}/window`, {
+          handle: newlyOpenedHandles.at(-1),
+        });
+      }
       return expectedOutput;
     }
     const output = await waitFor(`command response for \${command}`, async () => {
