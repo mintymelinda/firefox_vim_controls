@@ -48,7 +48,7 @@ Content scripts cannot run on Firefox internal pages or capture browser-chrome k
 - `:focus <hostname-selector>` — activate the most recently used matching tab and focus its window. For example, `:focus mail.google`.
 - `:domains [selector]` — list hostnames represented by matching tabs.
 - `:duplicates` — list tabs sharing the same URL (ignoring URL fragments and leading `www.`).
-- `:close [selector] [--confirm]` — close matching tabs; closing multiple tabs requires a preview and explicit confirmation.
+- `:close [selector] [--confirm]` — close matching tabs; closing multiple tabs requires a preview and explicit confirmation. If the selection includes every tab in a window, the whole window is closed.
 - `:move [selector], new_window|current_window|window 2` — move matching tabs to another window.
 - `:reload [selector] [--confirm]` — reload matching tabs; reloading multiple tabs requires confirmation.
 - `:mute [selector]` / `:unmute [selector]` — change tab audio state.
@@ -95,6 +95,6 @@ Command history, aliases, and preferences are stored locally with Firefox extens
 
 Selectors include `all`, `active`, `pinned`, `audible`, `duplicates`, `twitch`, `youtube`, `audible`, `domain:example.com`, and `window:2`. Domain matching includes subdomains but does not match lookalike suffixes such as `twitch.tv.evil.example`. Private windows are excluded from these commands.
 
-Broad close, reload, and discard operations show a preview and require `--confirm`. The extension protects the last tab in each normal window when closing multiple tabs.
+Broad close, reload, and discard operations show a preview and require `--confirm`. When a close selection includes every tab in a normal window, the extension closes that window rather than leaving an empty one.
 
 See [the complete plan](https://github.com/mintymelinda/firefox_vim_controls/issues/1) and [Phase 1–3 checklist](https://github.com/mintymelinda/firefox_vim_controls/issues/2).
