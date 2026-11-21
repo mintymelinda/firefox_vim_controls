@@ -146,7 +146,7 @@
   async function completeInput() {
     const value = input.value;
     const selectorMatch = value.match(
-      /(?<command>tabs|count|close|move|reload|mute|unmute|pin|unpin|discard|split|reverse|shuffle|back|forward|refresh)\s+(?<selector>[^,\s]*)(?<suffix>,.*)?$/i,
+      /(?<command>tabs|count|focus|close|move|reload|mute|unmute|pin|unpin|discard|split|reverse|shuffle|back|forward|refresh)\s+(?<selector>[^,\s]*)(?<suffix>,.*)?$/i,
     );
     if (selectorMatch?.groups.selector) {
       try {
