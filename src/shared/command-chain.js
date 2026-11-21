@@ -12,7 +12,7 @@
     for (const command of commands) {
       const result = await execute(command);
       results.push({ command, result });
-      if (result?.ok === false || result?.requiresConfirmation) break;
+      if (result?.ok === false || result?.requiresConfirmation || result?.closePrompt) break;
     }
     return results;
   }
