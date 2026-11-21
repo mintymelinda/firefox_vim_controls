@@ -32,6 +32,15 @@
     );
   }
 
+  function hostnameFragmentMatches(hostname, fragment) {
+    const normalizedFragment = String(fragment || "").trim().toLowerCase();
+    if (!normalizedFragment) return false;
+    return String(hostname || "")
+      .toLowerCase()
+      .split(".")
+      .some((label) => label.includes(normalizedFragment));
+  }
+
   function canonicalUrl(tab) {
     if (typeof tab?.url !== "string") return "";
     try {
@@ -80,6 +89,11 @@
         HOST_ALIASES[value].some((domain) => hostMatches(hostnameOf(tab), domain)),
       );
     }
+    if (!value.includes(":")) {
+      return tabs.filter((tab) =>
+        hostnameFragmentMatches(hostnameOf(tab), value),
+      );
+    }
     if (value.startsWith("window:")) {
       const index = Number(value.slice("window:".length));
       if (!Number.isSafeInteger(index) || index < 1) {
@@ -92,7 +106,7 @@
     throw new Error(`Unknown tab selector: ${selector}`);
   }
 
-  const api = { canonicalUrl, duplicateTabIds, hostMatches, hostnameOf, selectTabs };
+  const api = { canonicalUrl, duplicateTabIds, hostMatches, hostnameOf, hostnameFragmentMatches, selectTabs };
   root.VimTabSelectors = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(globalThis);
