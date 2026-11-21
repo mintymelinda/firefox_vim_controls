@@ -339,9 +339,18 @@ try {
   );
   await runCommand(":count all", "3 tab(s) matched all.");
   await runCommand(":count fixture", "2 tab(s) matched fixture");
-  await runCommand(":close fixture --confirm", "2 of 2 tab(s) closed.");
-  const remainingWindows = await runCommand(":windows", "Window 1");
-  assert.doesNotMatch(remainingWindows, /Window 2/);
+  const handlesBeforeClose = await request("GET", `/session/${sessionId}/window/handles`);
+  await sendKeys(sessionId, commandInput, ":close fixture --confirm");
+  await sendKeys(sessionId, commandInput, "\uE007");
+  const handlesAfterClose = await waitFor("fixture window closure", async () => {
+    const handles = await request("GET", `/session/${sessionId}/window/handles`);
+    return handles.length < handlesBeforeClose.length ? handles : null;
+  });
+  assert.equal(
+    handlesAfterClose.length,
+    1,
+    "closing the fixture tabs should close their entire window and preserve the unrelated tab",
+  );
 
   await sendKeys(sessionId, commandInput, "\uE00C");
   await waitFor(
