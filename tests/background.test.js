@@ -322,9 +322,8 @@ test("closes one selected tab immediately but previews multi-tab closes", async 
 
 test("closes the whole window when its final tab is selected", async () => {
   const api = createBrowserApi();
-  const windows = makeWindows();
+  const windows = await api.windows.getAll();
   windows[0].tabs = [windows[0].tabs[0]];
-  api.windows.getAll = async () => windows;
   const onlyTab = await handleMessage(request("close", ["twitch"]), api, selectors);
   assert.deepEqual(onlyTab, {
     ok: true,
