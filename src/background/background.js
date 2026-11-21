@@ -1580,7 +1580,11 @@
         ]);
         const senderTab = tabs.find((tab) => tab.id === sender.tab.id);
         const senderWindow = windows.find((window) => window.id === sender.tab.windowId);
-        if (!senderTab?.active || !senderWindow?.focused) {
+        if (
+          !senderTab?.active ||
+          senderTab.windowId !== sender.tab.windowId ||
+          !senderWindow?.focused
+        ) {
           return { ...response, closePrompt: true };
         }
       } catch {
