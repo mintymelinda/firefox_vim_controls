@@ -67,7 +67,7 @@ test("selects every tab matching a left-to-right hostname prefix", () => {
   );
   assert.deepEqual(
     selectTabs(tabs, "twitch").map((tab) => tab.id),
-    [1],
+    [1, 5],
   );
 });
 
