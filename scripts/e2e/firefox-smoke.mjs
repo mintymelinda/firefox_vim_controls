@@ -220,7 +220,11 @@ try {
 
   const commandInput = await findElement(sessionId, "#fvc-command-panel input");
 
-  async function runCommand(command, expectedOutput, { promptCloses = false } = {}) {
+  async function runCommand(
+    command,
+    expectedOutput,
+    { promptCloses = false, focusUrlPrefix = null } = {},
+  ) {
     if (!(await findElement(sessionId, "#fvc-command-panel"))) {
       const activeBody = await findElement(sessionId, "body");
       await sendKeys(sessionId, activeBody, ":");
@@ -245,6 +249,12 @@ try {
         await request("POST", `/session/${sessionId}/window`, {
           handle: newlyOpenedHandles.at(-1),
         });
+      } else if (focusUrlPrefix) {
+        for (const handle of handlesAfterCommand) {
+          await request("POST", `/session/${sessionId}/window`, { handle });
+          const url = await executeScript(sessionId, "return location.href");
+          if (url.startsWith(focusUrlPrefix)) break;
+        }
       }
       await executeScript(sessionId, "window.focus()");
       return expectedOutput;
@@ -350,6 +360,7 @@ try {
   await delay(500);
   await runCommand(":move fixture, new_window", "Moved 2 tab(s) into new window", {
     promptCloses: true,
+    focusUrlPrefix: "http://fixture:4173/",
   });
   await runCommand(":window 2", "Focused window 2");
   await runCommand(":windows", "Window ");
