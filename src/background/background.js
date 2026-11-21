@@ -722,21 +722,19 @@
 
   function removableTabs(selected, windows) {
     const removable = [];
-    let protectedCount = 0;
+    const windowsToClose = [];
     for (const window of windows) {
       const inWindow = selected.filter((tab) => tab.windowId === window.id);
       if (!inWindow.length) continue;
       const selectedIds = new Set(inWindow.map((tab) => tab.id));
-      const unselected = window.tabs.filter((tab) => !selectedIds.has(tab.id));
-      if (unselected.length) {
+      const remaining = window.tabs.filter((tab) => !selectedIds.has(tab.id));
+      if (remaining.length) {
         removable.push(...inWindow);
       } else {
-        const keep = inWindow.find((tab) => tab.active) || inWindow[0];
-        removable.push(...inWindow.filter((tab) => tab.id !== keep.id));
-        protectedCount += 1;
+        windowsToClose.push(window);
       }
     }
-    return { removable, protectedCount };
+    return { removable, windowsToClose };
   }
 
   function previewLines(commandName, selector, tabs, windows) {
@@ -769,6 +767,37 @@
     const output = [`${succeeded} of ${tabs.length} tab(s) updated.`];
     output.push(...failures);
     return { ok: failures.length === 0, output };
+  }
+
+  async function performClose(removable, windowsToClose, browserApi) {
+    const operations = [
+      ...removable.map((tab) => ({
+        tabCount: 1,
+        label: `Tab #${tab.id}`,
+        run: () => browserApi.tabs.remove(tab.id),
+      })),
+      ...windowsToClose.map((window) => ({
+        tabCount: window.tabs.length,
+        label: `Window ${window.index} (#${window.id})`,
+        run: () => browserApi.windows.remove(window.id),
+      })),
+    ];
+    const totalTabs = operations.reduce((count, operation) => count + operation.tabCount, 0);
+    let closedTabs = 0;
+    const failures = [];
+    for (const operation of operations) {
+      try {
+        await operation.run();
+        closedTabs += operation.tabCount;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "close operation failed";
+        failures.push(`${operation.label}: ${message}`);
+      }
+    }
+    return {
+      ok: failures.length === 0,
+      output: [`${closedTabs} of ${totalTabs} tab(s) closed.`, ...failures],
+    };
   }
 
   function resolveMoveTarget(destination, windows, focusedWindow) {
@@ -1014,24 +1043,19 @@
       return { ok: true, output: [summary] };
     }
     if (name === "close") {
-      const { removable, protectedCount } = removableTabs(selected, windows);
-      if (!removable.length) {
-        const message = selected.length
-          ? "The selected tabs are the last tabs in their windows; nothing was closed."
-          : "No tabs matched.";
-        return { ok: true, output: [message] };
+      const { removable, windowsToClose } = removableTabs(selected, windows);
+      if (!removable.length && !windowsToClose.length) {
+        return { ok: true, output: ["No tabs matched."] };
       }
-      if (removable.length > 1 && !confirmed) {
+      if (selected.length > 1 && !confirmed) {
         return {
           ok: true,
           requiresConfirmation: true,
-          output: previewLines(name, selector, removable, windows),
+          output: previewLines(name, selector, selected, windows),
         };
       }
       clearUndoStack();
-      const result = await performPerTab(removable, (id) => browserApi.tabs.remove(id));
-      if (protectedCount) result.output.push(`Kept one tab open in ${protectedCount} window(s).`);
-      return result;
+      return performClose(removable, windowsToClose, browserApi);
     }
 
     if (name === "reload") {
@@ -1569,6 +1593,7 @@
     appendSnapshot,
     resolveNavigationUrl,
     executeMutation,
+    performClose,
     executeWindowCommand,
     moveTabsToWindow,
     getNormalWindowSnapshot,
