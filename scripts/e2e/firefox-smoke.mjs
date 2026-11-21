@@ -232,19 +232,19 @@ try {
     await sendKeys(sessionId, currentInput, command);
     await sendKeys(sessionId, currentInput, "\uE007");
     if (promptCloses) {
-      await waitFor(\`old command prompt closes after \${command}\`, async () =>
+      await waitFor(`old command prompt closes after \${command}`, async () =>
         (await findElement(sessionId, "#fvc-command-panel")) === null,
       );
       return expectedOutput;
     }
-    const output = await waitFor(\`command response for \${command}\`, async () => {
+    const output = await waitFor(`command response for \${command}`, async () => {
       const text = await executeScript(
         sessionId,
         "return document.querySelector('#fvc-command-panel .fvc-output')?.lastElementChild?.textContent || ''",
       );
       return text.includes(expectedOutput) ? text : null;
     });
-    await waitFor(\`command input reset after \${command}\`, async () =>
+    await waitFor(`command input reset after \${command}`, async () =>
       executeScript(
         sessionId,
         "return document.querySelector('#fvc-command-panel input').value === ''",
