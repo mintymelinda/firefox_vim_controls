@@ -1007,10 +1007,11 @@
         await browserApi.tabs.update(target.id, { active: true });
       }
       const label = target.title || selectors.hostnameOf(target) || target.url || "Untitled tab";
-      return {
-        ok: true,
-        output: [`Focused tab #${target.id} in window ${targetWindow.index}: ${String(label).replace(/\s+/g, " ").trim()}`],
-      };
+      const summary = [
+        `Focused tab #${target.id} in window ${targetWindow.index}:`,
+        String(label).replace(/\s+/g, " ").trim(),
+      ].join(" ");
+      return { ok: true, output: [summary] };
     }
     if (name === "close") {
       const { removable, protectedCount } = removableTabs(selected, windows);
