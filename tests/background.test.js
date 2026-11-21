@@ -265,17 +265,32 @@ test("hostname suggestions include only tabs from the requesting privacy context
   );
 });
 
-test("protects the final tab in every window during close operations", () => {
+test("plans to close windows when every tab in them is selected", () => {
   const windows = makeWindows().filter((window) => !window.incognito);
   const tabs = windows.flatMap((window) =>
     window.tabs.map((tab) => ({ ...tab, windowId: window.id })),
   );
   const result = removableTabs(tabs, windows);
+  assert.deepEqual(result.removable, []);
+  assert.deepEqual(
+    result.windowsToClose.map((window) => window.id),
+    [10, 11],
+  );
+});
+
+test("removes selected tabs without closing windows that retain other tabs", () => {
+  const windows = makeWindows().filter((window) => !window.incognito);
+  const selected = windows.flatMap((window) =>
+    window.tabs
+      .filter((tab) => tab.id === 2 || tab.id === 4)
+      .map((tab) => ({ ...tab, windowId: window.id })),
+  );
+  const result = removableTabs(selected, windows);
   assert.deepEqual(
     result.removable.map((tab) => tab.id),
     [2, 4],
   );
-  assert.equal(result.protectedCount, 2);
+  assert.deepEqual(result.windowsToClose, []);
 });
 
 test("closes one selected tab immediately but previews multi-tab closes", async () => {
@@ -305,17 +320,32 @@ test("closes one selected tab immediately but previews multi-tab closes", async 
   assert.match(confirmed.output[0], /2 of 2 tab/);
 });
 
-test("does not close the last tab in a window", async () => {
+test("closes the whole window when its final tab is selected", async () => {
   const api = createBrowserApi();
-  const windows = makeWindows();
+  const windows = await api.windows.getAll();
   windows[0].tabs = [windows[0].tabs[0]];
-  api.windows.getAll = async () => windows;
   const onlyTab = await handleMessage(request("close", ["twitch"]), api, selectors);
   assert.deepEqual(onlyTab, {
     ok: true,
-    output: ["The selected tabs are the last tabs in their windows; nothing was closed."],
+    output: ["1 of 1 tab(s) closed."],
   });
   assert.deepEqual(api.calls.removed, []);
+  assert.deepEqual(api.calls.windowRemoves, [10]);
+  assert.equal(
+    windows.some((window) => window.id === 10),
+    false,
+  );
+});
+
+test("closes a multi-tab window instead of removing its tabs individually", async () => {
+  const api = createBrowserApi();
+  const result = await handleMessage(request("close", ["youtube", "--confirm"]), api, selectors);
+  assert.deepEqual(result, {
+    ok: true,
+    output: ["2 of 2 tab(s) closed."],
+  });
+  assert.deepEqual(api.calls.removed, []);
+  assert.deepEqual(api.calls.windowRemoves, [11]);
 });
 
 test("moves selected tabs to a new or existing normal window", async () => {

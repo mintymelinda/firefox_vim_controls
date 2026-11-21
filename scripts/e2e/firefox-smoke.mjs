@@ -339,11 +339,17 @@ try {
   );
   await runCommand(":count all", "3 tab(s) matched all.");
   await runCommand(":count fixture", "2 tab(s) matched fixture");
-
-  await sendKeys(sessionId, commandInput, "\uE00C");
-  await waitFor(
-    "prompt close after command",
-    async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
+  const handlesBeforeClose = await request("GET", `/session/${sessionId}/window/handles`);
+  await sendKeys(sessionId, commandInput, ":close fixture --confirm");
+  await sendKeys(sessionId, commandInput, "\uE007");
+  const handlesAfterClose = await waitFor("fixture window closure", async () => {
+    const handles = await request("GET", `/session/${sessionId}/window/handles`);
+    return handles.length < handlesBeforeClose.length ? handles : null;
+  });
+  assert.equal(
+    handlesAfterClose.length,
+    1,
+    "closing the fixture tabs should close their entire window and preserve the unrelated tab",
   );
 
   console.log(
