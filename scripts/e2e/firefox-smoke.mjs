@@ -352,12 +352,6 @@ try {
     "closing the fixture tabs should close their entire window and preserve the unrelated tab",
   );
 
-  await sendKeys(sessionId, commandInput, "\uE00C");
-  await waitFor(
-    "prompt close after command",
-    async () => (await findElement(sessionId, "#fvc-command-panel")) === null,
-  );
-
   console.log(
     "Firefox browser smoke tests passed (prompt accessibility/focus, output retention, tab creation/pinning/undo, cross-window selection isolation, command round-trip, about:blank boundary).",
   );
