@@ -43,10 +43,7 @@ test("matches hostname selectors from the leftmost label without domain-specific
   assert.equal(hostnamePrefixMatches("mail.google.com", "google.com"), false);
   assert.equal(hostnamePrefixMatches("google.com", "google.com"), true);
   assert.equal(hostnamePrefixMatches("synth.bigstorageparty.synology.me", "synth"), true);
-  assert.equal(
-    hostnamePrefixMatches("synth.bigstorageparty.synology.me", "synth.big"),
-    true,
-  );
+  assert.equal(hostnamePrefixMatches("synth.bigstorageparty.synology.me", "synth.big"), true);
   assert.equal(hostnamePrefixMatches("gmail.com", "mail"), false);
   assert.equal(hostnamePrefixMatches("mail.google.com", "ma"), true);
 });

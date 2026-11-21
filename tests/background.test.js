@@ -244,18 +244,12 @@ test("supports read-only inspection and excludes private windows", async () => {
 
 test("hostname suggestions include only tabs from the requesting privacy context", async () => {
   const api = createBrowserApi();
-  const normal = await handleMessage(
-    { type: "VIM_HOSTNAME_SUGGESTIONS" },
-    api,
-    selectors,
-    { tab: { incognito: false } },
-  );
-  const privateResult = await handleMessage(
-    { type: "VIM_HOSTNAME_SUGGESTIONS" },
-    api,
-    selectors,
-    { tab: { incognito: true } },
-  );
+  const normal = await handleMessage({ type: "VIM_HOSTNAME_SUGGESTIONS" }, api, selectors, {
+    tab: { incognito: false },
+  });
+  const privateResult = await handleMessage({ type: "VIM_HOSTNAME_SUGGESTIONS" }, api, selectors, {
+    tab: { incognito: true },
+  });
 
   assert.deepEqual(normal, {
     ok: true,

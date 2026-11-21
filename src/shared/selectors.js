@@ -69,7 +69,9 @@
   }
 
   function selectTabs(tabs, selector = "all", options = {}) {
-    const value = String(selector || "all").trim().toLowerCase();
+    const value = String(selector || "all")
+      .trim()
+      .toLowerCase();
     if (!value || value === "all") return [...tabs];
     if (value === "active") {
       return tabs.filter((tab) => tab.active && tab.windowId === options.currentWindowId);

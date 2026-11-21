@@ -180,7 +180,10 @@ async function createPromptHarness({ history = ["tabs", "help"], privateContext 
         }
         if (message.type === "VIM_STATE_SET") return { ok: true };
         if (message.type === "VIM_HOSTNAME_SUGGESTIONS") {
-          return { ok: true, hostnames: ["mail.apple.com", "mail.google.com", "synth.bigstorageparty.synology.me"] };
+          return {
+            ok: true,
+            hostnames: ["mail.apple.com", "mail.google.com", "synth.bigstorageparty.synology.me"],
+          };
         }
         if (message.type === "VIM_COMMAND_REQUEST") {
           return { ok: true, output: ["background accepted command"] };
