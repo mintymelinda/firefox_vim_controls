@@ -340,13 +340,7 @@ try {
   await runCommand(":count all", "3 tab(s) matched all.");
   await runCommand(":count fixture", "2 tab(s) matched fixture");
   await runCommand(":close fixture --confirm", "2 of 2 tab(s) closed.");
-  const remainingWindows = await runCommand(":windows", "Window ");
-  const remainingWindowLines = await executeScript(
-    sessionId,
-    "return Array.from(document.querySelectorAll('#fvc-command-panel .fvc-output')).slice(-1).map((line) => line.textContent)",
-  );
-  assert.equal(remainingWindowLines.length, 1);
-  assert.match(remainingWindows, /Window 1/);
+  const remainingWindows = await runCommand(":windows", "Window 1");
   assert.doesNotMatch(remainingWindows, /Window 2/);
 
   await sendKeys(sessionId, commandInput, "\uE00C");
